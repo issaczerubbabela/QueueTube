@@ -4,8 +4,8 @@
   "description": "Transforms YouTube into a single-player experience with a persistent queue",
   "type": "module",
   "scripts": {
-    "dev": "vite build --watch",
-    "build": "tsc && vite build",
+    "dev": "node scripts/build.js",
+    "build": "tsc && node scripts/build.js",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -17,7 +17,7 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
-    "@types/chrome": "^0.2.2",
+    "@types/chrome": "^0.0.268",
     "@types/node": "^20.12.12",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",

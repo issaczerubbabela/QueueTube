@@ -3,7 +3,7 @@ import { QueueItem, QueueState, Settings } from '../types';
 export const DEFAULT_SETTINGS: Settings = {
   autoGather: true,
   allowDuplicates: false,
-  autoRemovePlayed: true,
+  autoRemovePlayed: false,
   autoFocusPlayer: true,
   queueLocation: 'right',
   theme: 'dark',
@@ -19,30 +19,24 @@ export const DEFAULT_STATE: QueueState = {
   settings: DEFAULT_SETTINGS,
 };
 
-function getStorageApi() {
+const getStorage = () => {
   if (typeof browser !== 'undefined' && browser.storage) {
     return browser.storage.local;
   }
   if (typeof chrome !== 'undefined' && chrome.storage) {
     return chrome.storage.local;
   }
-  // Memory fallback for development/testing outside extensions
-  const memoryStore: Record<string, any> = {};
-  return {
-    get: (keys: string[]): Promise<Record<string, any>> =>
-      Promise.resolve(keys.reduce((acc, k) => ({ ...acc, [k]: memoryStore[k] }), {})),
-    set: (obj: Record<string, any>): Promise<void> => {
-      Object.assign(memoryStore, obj);
-      return Promise.resolve();
-    }
-  };
-}
+  return null;
+};
 
 export async function getQueueState(): Promise<QueueState> {
-  const storage = getStorageApi();
+  const storage = getStorage();
+  if (!storage) {
+    return DEFAULT_STATE;
+  }
   const res = (await storage.get(['queueState'])) as { queueState?: QueueState };
   if (!res || !res.queueState) {
-    await saveQueueState(DEFAULT_STATE);
+    // Return default state directly without calling saveQueueState to avoid infinite recursion
     return DEFAULT_STATE;
   }
   return {
@@ -66,8 +60,10 @@ export async function saveQueueState(newState: Partial<QueueState>): Promise<Que
     }
   };
 
-  const storage = getStorageApi();
-  await storage.set({ queueState: updated });
+  const storage = getStorage();
+  if (storage) {
+    await storage.set({ queueState: updated });
+  }
 
   // Broadcast state to runtime if in extension context
   try {
@@ -153,12 +149,16 @@ export function subscribeQueueState(callback: (state: QueueState) => void): () =
     }
   };
 
-  if (typeof browser !== 'undefined' && browser.storage && browser.storage.onChanged) {
-    browser.storage.onChanged.addListener(listener);
-    return () => browser.storage.onChanged.removeListener(listener);
-  } else if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
-    chrome.storage.onChanged.addListener(listener);
-    return () => chrome.storage.onChanged.removeListener(listener);
+  const storageOnChanged =
+    typeof browser !== 'undefined' && browser.storage
+      ? browser.storage.onChanged
+      : typeof chrome !== 'undefined' && chrome.storage
+      ? chrome.storage.onChanged
+      : null;
+
+  if (storageOnChanged) {
+    storageOnChanged.addListener(listener);
+    return () => storageOnChanged.removeListener(listener);
   }
 
   return () => {};

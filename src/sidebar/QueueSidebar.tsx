@@ -1,38 +1,81 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQueueStore } from '../shared/store';
 import { SidebarItem } from './SidebarItem';
 import {
   ListVideo,
   Layers,
-  Trash2,
   ChevronRight,
   ChevronLeft,
   History,
   Sparkles,
   Settings as SettingsIcon,
-  Play,
-  RotateCcw
+  RotateCcw,
+  Download,
+  Upload
 } from 'lucide-react';
-import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 
 export const QueueSidebar: React.FC = () => {
   const store = useQueueStore();
   const [activeTab, setActiveTab] = useState<'queue' | 'history'>('queue');
   const [isResizing, setIsResizing] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     store.init();
   }, []);
 
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    store.moveQueueItem(result.source.index, result.destination.index);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    store.moveQueueItem(draggedIndex, index);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   const handleGatherTabs = () => {
     const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
     if (runtime && runtime.sendMessage) {
       runtime.sendMessage({ type: 'GATHER_TABS' });
+    }
+  };
+
+  const handleExportQueue = () => {
+    const lines = store.queue.map((item) => `${item.title}\t${item.url}`);
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `queuetube-queue-${new Date().toISOString().slice(0, 10)}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportQueue = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const importedCount = await store.importQueueFromText(text);
+      setImportStatus(importedCount > 0 ? `Imported ${importedCount}` : 'No new videos');
+    } catch (e) {
+      setImportStatus('Import failed');
+    } finally {
+      event.target.value = '';
+      setTimeout(() => setImportStatus(null), 2500);
     }
   };
 
@@ -84,8 +127,8 @@ export const QueueSidebar: React.FC = () => {
 
   return (
     <aside
-      style={{ width: `${store.settings.sidebarWidth}px` }}
-      className="relative flex flex-col h-[calc(100vh-64px)] bg-yt-dark/95 backdrop-blur-md text-yt-text border-l border-yt-border/60 shadow-panel transition-all select-none overflow-hidden"
+      style={{ width: '100%' }}
+      className="relative flex flex-col max-h-[calc(100vh-80px)] bg-yt-dark text-yt-text border border-yt-border/60 rounded-xl shadow-panel transition-all select-none overflow-hidden"
     >
       {/* Resizable Drag Border */}
       <div
@@ -110,6 +153,7 @@ export const QueueSidebar: React.FC = () => {
             </div>
             <p className="text-[11px] text-yt-muted">
               {store.queue.length} {store.queue.length === 1 ? 'video' : 'videos'} queued
+              {importStatus && <span className="ml-1 text-yt-red">• {importStatus}</span>}
             </p>
           </div>
         </div>
@@ -122,6 +166,31 @@ export const QueueSidebar: React.FC = () => {
           >
             <Layers className="w-3.5 h-3.5" />
             <span>Gather</span>
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,text/plain"
+            className="hidden"
+            onChange={handleImportQueue}
+          />
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-1.5 text-yt-muted hover:text-white hover:bg-yt-hover rounded-lg transition-colors"
+            title="Import queue from .txt"
+          >
+            <Upload className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={handleExportQueue}
+            disabled={store.queue.length === 0}
+            className="p-1.5 text-yt-muted hover:text-white hover:bg-yt-hover disabled:opacity-40 disabled:hover:text-yt-muted rounded-lg transition-colors"
+            title="Save queue to .txt"
+          >
+            <Download className="w-4 h-4" />
           </button>
 
           <button
@@ -218,32 +287,23 @@ export const QueueSidebar: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="queue-list">
-                  {(provided) => (
-                    <div
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className="space-y-1.5 min-h-[100px]"
-                    >
-                      {store.queue.map((item, idx) => (
-                        <SidebarItem
-                          key={item.id}
-                          item={item}
-                          index={idx}
-                          isCurrent={item.videoId === store.currentVideoId}
-                          onPlay={(videoId) => store.playVideo(videoId)}
-                          onRemove={(id) => store.removeQueueItem(id)}
-                          onMoveUp={(index) => store.moveQueueItem(index, index - 1)}
-                          onMoveDown={(index) => store.moveQueueItem(index, index + 1)}
-                          totalItems={store.queue.length}
-                        />
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
+              <div className="space-y-1.5 min-h-[100px] max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
+                {store.queue.map((item, idx) => (
+                  <SidebarItem
+                    key={item.id}
+                    item={item}
+                    index={idx}
+                    isCurrent={item.videoId === store.currentVideoId}
+                    onPlay={(videoId) => store.playVideo(videoId)}
+                    onRemove={(id) => store.removeQueueItem(id)}
+                    totalItems={store.queue.length}
+                    isDragged={draggedIndex === idx}
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDragEnd={handleDragEnd}
+                  />
+                ))}
+              </div>
             )}
           </>
         ) : (

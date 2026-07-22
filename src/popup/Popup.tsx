@@ -9,17 +9,36 @@ import {
   Settings as SettingsIcon,
   ExternalLink,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Layout
 } from 'lucide-react';
 
 export const Popup: React.FC = () => {
   const store = useQueueStore();
 
   useEffect(() => {
+    console.log('[QueueTube Popup] Popup mounted. Initializing store...');
     store.init();
+
+    // Send CHECK_MASTER_TAB to background script
+    const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
+    if (runtime && runtime.sendMessage) {
+      console.log('[QueueTube Popup] Sending CHECK_MASTER_TAB message to background...');
+      runtime.sendMessage({ type: 'CHECK_MASTER_TAB' }, (response: any) => {
+        console.log('[QueueTube Popup] Received CHECK_MASTER_TAB response:', response);
+        if (response && response.state) {
+          console.log('[QueueTube Popup] Updating store with background state:', response.state);
+          useQueueStore.setState({ ...response.state });
+        } else if (response && response.masterTabId !== undefined) {
+          console.log('[QueueTube Popup] Updating masterTabId in store:', response.masterTabId);
+          useQueueStore.setState({ masterTabId: response.masterTabId });
+        }
+      });
+    }
   }, []);
 
   const handleGatherTabs = () => {
+    console.log('[QueueTube Popup] User clicked Gather Tabs');
     const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
     if (runtime && runtime.sendMessage) {
       runtime.sendMessage({ type: 'GATHER_TABS' });
@@ -27,6 +46,7 @@ export const Popup: React.FC = () => {
   };
 
   const handleOpenPlayer = () => {
+    console.log('[QueueTube Popup] User clicked Focus/Open Player tab');
     const extApi = typeof browser !== 'undefined' ? browser : chrome;
     if (store.masterTabId !== null) {
       extApi.tabs.update(store.masterTabId, { active: true }).catch(() => {
@@ -38,6 +58,7 @@ export const Popup: React.FC = () => {
   };
 
   const handleOpenOptions = () => {
+    console.log('[QueueTube Popup] Opening options page...');
     const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
     if (runtime && runtime.openOptionsPage) {
       runtime.openOptionsPage();
@@ -85,12 +106,26 @@ export const Popup: React.FC = () => {
               {store.masterTabId !== null ? 'Master Player Active' : 'No Player Active'}
             </span>
             <p className="text-[10px] text-yt-muted">
-              {store.masterTabId !== null ? 'Click to focus player tab' : 'Open YouTube to activate'}
+              {store.masterTabId !== null ? `Tab ID: ${store.masterTabId} (Click to focus)` : 'Open YouTube to activate'}
             </p>
           </div>
         </div>
         <ExternalLink className="w-3.5 h-3.5 text-yt-muted group-hover:text-white transition-colors" />
       </div>
+
+      {/* Primary Action Button: Force Inject Sidebar */}
+      <button
+        onClick={() => {
+          const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
+          if (runtime && runtime.sendMessage) {
+            runtime.sendMessage({ type: 'FORCE_INJECT_SIDEBAR' });
+          }
+        }}
+        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-glow transition-all active:scale-98"
+      >
+        <Layout className="w-4 h-4" />
+        <span>Force Show Sidebar</span>
+      </button>
 
       {/* Primary Action Button: Gather Tabs */}
       <button
@@ -99,7 +134,7 @@ export const Popup: React.FC = () => {
       >
         <Layers className="w-4 h-4" />
         <span>Gather YouTube Tabs</span>
-        <span className="text-[10px] opacity-75 font-mono ml-auto">Ctrl+Shift+Q</span>
+        <span className="text-[10px] opacity-75 font-mono ml-auto" title="Manage shortcuts in about:addons">Alt+Shift+Q</span>
       </button>
 
       {/* Currently Playing Card */}
@@ -127,7 +162,7 @@ export const Popup: React.FC = () => {
             onClick={() => store.playPrevious()}
             disabled={store.history.length === 0}
             className="p-2 text-yt-muted hover:text-white disabled:opacity-30 disabled:hover:text-yt-muted rounded-lg transition-colors"
-            title="Previous Video (Ctrl+Shift+P)"
+            title="Previous Video (Alt+Shift+P - Edit in about:addons)"
           >
             <SkipBack className="w-4 h-4" />
           </button>
@@ -136,7 +171,7 @@ export const Popup: React.FC = () => {
             onClick={() => store.playNext()}
             disabled={store.queue.length === 0}
             className="p-2 text-yt-muted hover:text-white disabled:opacity-30 disabled:hover:text-yt-muted rounded-lg transition-colors"
-            title="Next Video (Ctrl+Shift+N)"
+            title="Next Video (Alt+Shift+N - Edit in about:addons)"
           >
             <SkipForward className="w-4 h-4" />
           </button>

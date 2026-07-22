@@ -26,6 +26,16 @@ export function extractVideoId(url: string): string | null {
   return null;
 }
 
+export function isMainYouTube(url: string): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === 'www.youtube.com' || parsed.hostname === 'youtube.com';
+  } catch (e) {
+    return false;
+  }
+}
+
 export function buildWatchUrl(videoId: string): string {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }

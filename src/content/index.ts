@@ -3,36 +3,82 @@ import { createRoot } from 'react-dom/client';
 import { QueueSidebar } from '../sidebar/QueueSidebar';
 import { useQueueStore } from '../shared/store';
 import { extractVideoId } from '../utils/youtube';
-import styleText from './style.css?inline';
 
 const extApi = typeof browser !== 'undefined' ? browser : chrome;
 
 let shadowContainer: HTMLDivElement | null = null;
 let shadowRootRef: ShadowRoot | null = null;
+let messageListenerAttached = false;
+let navigationObserverAttached = false;
+
+function getYouTubeQueueParent(): HTMLElement | null {
+  return (
+    document.querySelector('#secondary-inner') ||
+    document.querySelector('#secondary') ||
+    document.querySelector('#columns')
+  ) as HTMLElement | null;
+}
+
+function styleHost(host: HTMLDivElement, isIntegrated: boolean) {
+  host.style.zIndex = isIntegrated ? '1' : '9999';
+  host.style.pointerEvents = 'auto';
+
+  if (isIntegrated) {
+    host.style.position = 'relative';
+    host.style.top = '';
+    host.style.right = '';
+    host.style.bottom = '';
+    host.style.width = '100%';
+    host.style.marginBottom = '16px';
+  } else {
+    host.style.position = 'fixed';
+    host.style.top = '56px';
+    host.style.right = '0';
+    host.style.bottom = '0';
+    host.style.width = '';
+    host.style.marginBottom = '';
+  }
+}
+
+function ensureHostPlacement() {
+  if (!shadowContainer || !document.body.contains(shadowContainer)) return;
+  const queueParent = getYouTubeQueueParent();
+  if (!queueParent || shadowContainer.parentElement === queueParent) return;
+
+  styleHost(shadowContainer, true);
+  queueParent.prepend(shadowContainer);
+  console.log('[QueueTube Content] Moved QueueTube host into YouTube secondary column.');
+}
 
 function injectQueueTubeSidebar() {
-  if (document.getElementById('queuetube-host')) {
+  if (shadowContainer && document.body.contains(shadowContainer)) {
+    console.log('[QueueTube Content] Host element already injected.');
     return;
   }
+
+  const staleHost = document.getElementById('queuetube-host');
+  if (staleHost) {
+    console.log('[QueueTube Content] Removing stale QueueTube host before reinjection.');
+    staleHost.remove();
+  }
+
+  console.log('[QueueTube Content] Injecting QueueTube Host & Shadow DOM into YouTube...');
 
   // Create Host Container
   const host = document.createElement('div');
   host.id = 'queuetube-host';
-  host.style.position = 'fixed';
-  host.style.top = '56px';
-  host.style.right = '0';
-  host.style.bottom = '0';
-  host.style.zIndex = '9999';
-  host.style.pointerEvents = 'auto';
+  const queueParent = getYouTubeQueueParent();
+  styleHost(host, Boolean(queueParent));
 
   // Attach Shadow DOM
   const shadow = host.attachShadow({ mode: 'open' });
   shadowRootRef = shadow;
 
-  // Inject Styles into Shadow Root
-  const styleEl = document.createElement('style');
-  styleEl.textContent = styleText;
-  shadow.appendChild(styleEl);
+  // Inject Styles into Shadow Root via <link>
+  const linkEl = document.createElement('link');
+  linkEl.rel = 'stylesheet';
+  linkEl.href = extApi.runtime.getURL('content/style.css');
+  shadow.appendChild(linkEl);
 
   // Mount Point
   const mountPoint = document.createElement('div');
@@ -40,13 +86,18 @@ function injectQueueTubeSidebar() {
   mountPoint.className = 'h-full flex items-stretch font-sans antialiased';
   shadow.appendChild(mountPoint);
 
-  document.body.appendChild(host);
+  if (queueParent) {
+    queueParent.prepend(host);
+  } else {
+    document.body.appendChild(host);
+  }
+  shadowContainer = host;
 
   // Render React Sidebar Component
   const root = createRoot(mountPoint);
   root.render(React.createElement(QueueSidebar));
 
-  console.log('[QueueTube] Shadow DOM Sidebar injected successfully.');
+  console.log('[QueueTube Content] Shadow DOM Sidebar injected & rendered successfully.');
 }
 
 // Observe HTML5 Video Player Events
@@ -58,12 +109,13 @@ function setupVideoPlayerObserver() {
     if (videoEl.dataset.queuetubeAttached) return;
     videoEl.dataset.queuetubeAttached = 'true';
 
-    console.log('[QueueTube] Attached HTML5 Video Player event listener.');
+    console.log('[QueueTube Content] Attached HTML5 Video Player event listener to:', videoEl);
 
     videoEl.addEventListener('ended', async () => {
-      console.log('[QueueTube] Video ended. Checking queue auto-play...');
+      console.log('[QueueTube Content] Video ended event fired. Checking auto-play...');
       const store = useQueueStore.getState();
       if (store.queue.length > 0) {
+        console.log('[QueueTube Content] Advancing to next video in queue...');
         await store.playNext();
       }
     });
@@ -74,36 +126,53 @@ function setupVideoPlayerObserver() {
   // Retry observer if player renders dynamically
   const observer = new MutationObserver(() => {
     attachVideoListeners();
+    ensureHostPlacement();
   });
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // Observe YouTube Navigation (yt-navigate-finish / URL changes)
 function setupNavigationObserver() {
-  const updateCurrentVideo = () => {
+  if (navigationObserverAttached) return;
+  navigationObserverAttached = true;
+  const handleNav = () => {
     const videoId = extractVideoId(window.location.href);
     if (videoId) {
       useQueueStore.getState().setCurrentVideoId(videoId);
     }
   };
-
-  window.addEventListener('yt-navigate-finish', updateCurrentVideo);
-  window.addEventListener('popstate', updateCurrentVideo);
-
-  // Initial check
-  updateCurrentVideo();
+  window.addEventListener('yt-navigate-finish', handleNav);
+  window.addEventListener('popstate', handleNav);
+  handleNav();
 }
 
-// Message listener for runtime commands (e.g. TOGGLE_SIDEBAR)
-extApi.runtime.onMessage.addListener((message: any) => {
-  if (message && message.type === 'TOGGLE_SIDEBAR') {
-    const store = useQueueStore.getState();
-    store.setSettings({ sidebarCollapsed: !store.settings.sidebarCollapsed });
-  }
-});
-
 function initContentScript() {
-  // Only run on YouTube watch pages or general YouTube pages
+  // Idempotent message listener
+  if (!messageListenerAttached) {
+    messageListenerAttached = true;
+    extApi.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: (response?: any) => void) => {
+      console.log('[QueueTube Content] Received message:', message);
+      if (message && message.type === 'PING_QUEUE_TUBE') {
+        sendResponse({ success: true });
+        return true;
+      }
+      if (message && message.type === 'OPEN_SIDEBAR') {
+        const store = useQueueStore.getState();
+        store.setSettings({ sidebarCollapsed: false });
+        sendResponse({ success: true });
+        return true;
+      }
+      if (message && message.type === 'TOGGLE_SIDEBAR') {
+        const store = useQueueStore.getState();
+        store.setSettings({ sidebarCollapsed: !store.settings.sidebarCollapsed });
+        sendResponse({ success: true });
+        return true;
+      }
+      return false;
+    });
+  }
+
+  console.log('[QueueTube Content] Initializing content script on:', window.location.href);
   if (window.location.hostname.includes('youtube.com')) {
     injectQueueTubeSidebar();
     setupVideoPlayerObserver();
@@ -111,8 +180,12 @@ function initContentScript() {
   }
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initContentScript);
-} else {
-  initContentScript();
+// Aggressive initialization to handle YouTube's SPA and early injection
+function tryInit() {
+  if (document.body) {
+    initContentScript();
+  } else {
+    setTimeout(tryInit, 50);
+  }
 }
+tryInit();
