@@ -13,6 +13,7 @@ import {
   Download,
   Upload
 } from 'lucide-react';
+import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 
 export const QueueSidebar: React.FC = () => {
   const store = useQueueStore();
@@ -25,24 +26,9 @@ export const QueueSidebar: React.FC = () => {
     store.init();
   }, []);
 
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index);
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = 'move';
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-    store.moveQueueItem(draggedIndex, index);
-    setDraggedIndex(index);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    store.moveQueueItem(result.source.index, result.destination.index);
   };
 
   const handleGatherTabs = () => {
@@ -287,23 +273,32 @@ export const QueueSidebar: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="space-y-1.5 min-h-[100px] max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
-                {store.queue.map((item, idx) => (
-                  <SidebarItem
-                    key={item.id}
-                    item={item}
-                    index={idx}
-                    isCurrent={item.videoId === store.currentVideoId}
-                    onPlay={(videoId) => store.playVideo(videoId)}
-                    onRemove={(id) => store.removeQueueItem(id)}
-                    totalItems={store.queue.length}
-                    isDragged={draggedIndex === idx}
-                    onDragStart={(e) => handleDragStart(e, idx)}
-                    onDragOver={(e) => handleDragOver(e, idx)}
-                    onDragEnd={handleDragEnd}
-                  />
-                ))}
-              </div>
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="queue-list">
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="space-y-1.5 min-h-[100px]"
+                    >
+                      {store.queue.map((item, idx) => (
+                        <SidebarItem
+                          key={item.id}
+                          item={item}
+                          index={idx}
+                          isCurrent={item.videoId === store.currentVideoId}
+                          onPlay={(videoId) => store.playVideo(videoId)}
+                          onRemove={(id) => store.removeQueueItem(id)}
+                          onMoveUp={(index) => store.moveQueueItem(index, index - 1)}
+                          onMoveDown={(index) => store.moveQueueItem(index, index + 1)}
+                          totalItems={store.queue.length}
+                        />
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             )}
           </>
         ) : (
