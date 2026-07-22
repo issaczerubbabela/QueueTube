@@ -13,7 +13,6 @@ import {
   Download,
   Upload
 } from 'lucide-react';
-import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 
 export const QueueSidebar: React.FC = () => {
   const store = useQueueStore();
@@ -22,13 +21,38 @@ export const QueueSidebar: React.FC = () => {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Drag state
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   useEffect(() => {
     store.init();
   }, []);
 
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    store.moveQueueItem(result.source.index, result.destination.index);
+  const handleDragStart = (_e: React.DragEvent, index: number) => {
+    setDraggingIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragEnd = (_e: React.DragEvent) => {
+    if (draggingIndex !== null && dragOverIndex !== null && draggingIndex !== dragOverIndex) {
+      store.moveQueueItem(draggingIndex, dragOverIndex);
+    }
+    setDraggingIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggingIndex !== null && draggingIndex !== index) {
+      store.moveQueueItem(draggingIndex, index);
+    }
+    setDraggingIndex(null);
+    setDragOverIndex(null);
   };
 
   const handleGatherTabs = () => {
@@ -125,7 +149,7 @@ export const QueueSidebar: React.FC = () => {
       />
 
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-yt-border/50 bg-yt-paper/50">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-yt-border/50 bg-yt-paper/50 flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="p-1.5 rounded-lg bg-yt-red/10 border border-yt-red/30">
             <ListVideo className="w-5 h-5 text-yt-red" />
@@ -137,7 +161,7 @@ export const QueueSidebar: React.FC = () => {
                 Master
               </span>
             </div>
-            <p className="text-[11px] text-yt-muted">
+            <p className="text-[12px] text-yt-muted">
               {store.queue.length} {store.queue.length === 1 ? 'video' : 'videos'} queued
               {importStatus && <span className="ml-1 text-yt-red">• {importStatus}</span>}
             </p>
@@ -190,10 +214,10 @@ export const QueueSidebar: React.FC = () => {
       </header>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-yt-border/40 px-3 bg-yt-paper/30">
+      <div className="flex border-b border-yt-border/40 px-3 bg-yt-paper/30 flex-shrink-0">
         <button
           onClick={() => setActiveTab('queue')}
-          className={`flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+          className={`flex items-center gap-2 px-3 py-2 text-[14px] font-medium border-b-2 transition-colors ${
             activeTab === 'queue'
               ? 'border-yt-red text-white'
               : 'border-transparent text-yt-muted hover:text-yt-text'
@@ -205,7 +229,7 @@ export const QueueSidebar: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+          className={`flex items-center gap-2 px-3 py-2 text-[14px] font-medium border-b-2 transition-colors ${
             activeTab === 'history'
               ? 'border-yt-red text-white'
               : 'border-transparent text-yt-muted hover:text-yt-text'
@@ -218,7 +242,7 @@ export const QueueSidebar: React.FC = () => {
         {store.queue.length > 0 && activeTab === 'queue' && (
           <button
             onClick={() => store.clearQueue()}
-            className="ml-auto text-[11px] text-yt-muted hover:text-red-400 px-2 py-1 transition-colors"
+            className="ml-auto text-[12px] text-yt-muted hover:text-red-400 px-2 py-1 transition-colors"
             title="Clear all queued videos"
           >
             Clear All
@@ -226,13 +250,13 @@ export const QueueSidebar: React.FC = () => {
         )}
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      {/* Main Content Area — scrollable */}
+      <div className="flex-1 overflow-y-auto min-h-0 p-3">
         {activeTab === 'queue' ? (
           <>
             {/* Currently Playing Card */}
             {currentItem && (
-              <div className="p-2.5 rounded-xl bg-yt-red/10 border border-yt-red/30 space-y-2">
+              <div className="p-2.5 rounded-xl bg-yt-red/10 border border-yt-red/30 space-y-2 mb-3">
                 <div className="flex items-center justify-between text-[11px] text-yt-red font-semibold uppercase tracking-wider">
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-yt-red animate-ping" />
@@ -246,14 +270,14 @@ export const QueueSidebar: React.FC = () => {
                     className="w-16 h-10 object-cover rounded-md bg-black/50"
                   />
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-xs font-semibold text-white truncate">{currentItem.title}</h3>
-                    <p className="text-[11px] text-yt-muted truncate">{currentItem.channel}</p>
+                    <h3 className="text-[14px] font-medium text-white truncate">{currentItem.title}</h3>
+                    <p className="text-[12px] text-yt-muted truncate">{currentItem.channel}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Queue Drag & Drop List */}
+            {/* Queue List */}
             {store.queue.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center p-8 space-y-3 text-yt-muted my-10">
                 <div className="p-4 rounded-full bg-yt-paper/60 border border-white/5">
@@ -273,32 +297,24 @@ export const QueueSidebar: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="queue-list">
-                  {(provided) => (
-                    <div
-                      {...provided.droppableProps}
-                      ref={provided.innerRef}
-                      className="space-y-1.5 min-h-[100px]"
-                    >
-                      {store.queue.map((item, idx) => (
-                        <SidebarItem
-                          key={item.id}
-                          item={item}
-                          index={idx}
-                          isCurrent={item.videoId === store.currentVideoId}
-                          onPlay={(videoId) => store.playVideo(videoId)}
-                          onRemove={(id) => store.removeQueueItem(id)}
-                          onMoveUp={(index) => store.moveQueueItem(index, index - 1)}
-                          onMoveDown={(index) => store.moveQueueItem(index, index + 1)}
-                          totalItems={store.queue.length}
-                        />
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
+              <div className="space-y-1.5">
+                {store.queue.map((item, idx) => (
+                  <SidebarItem
+                    key={item.id}
+                    item={item}
+                    index={idx}
+                    isCurrent={item.videoId === store.currentVideoId}
+                    onPlay={(videoId) => store.playVideo(videoId)}
+                    onRemove={(id) => store.removeQueueItem(id)}
+                    isDragging={draggingIndex === idx}
+                    isDragOver={dragOverIndex === idx && draggingIndex !== idx}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                    onDrop={handleDrop}
+                  />
+                ))}
+              </div>
             )}
           </>
         ) : (
@@ -320,8 +336,8 @@ export const QueueSidebar: React.FC = () => {
                     className="w-16 h-10 object-cover rounded-md bg-black/40"
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-medium text-white truncate">{item.title}</h4>
-                    <p className="text-[11px] text-yt-muted truncate">{item.channel}</p>
+                    <h4 className="text-[13px] font-medium text-white truncate">{item.title}</h4>
+                    <p className="text-[12px] text-yt-muted truncate">{item.channel}</p>
                   </div>
                   <button
                     onClick={() => store.playVideo(item.videoId)}
@@ -338,7 +354,7 @@ export const QueueSidebar: React.FC = () => {
       </div>
 
       {/* Footer Info */}
-      <footer className="p-2.5 border-t border-yt-border/40 bg-yt-paper/40 flex items-center justify-between text-[11px] text-yt-muted">
+      <footer className="p-2.5 border-t border-yt-border/40 bg-yt-paper/40 flex items-center justify-between text-[12px] text-yt-muted flex-shrink-0">
         <span>QueueTube v1.0</span>
         <button
           onClick={() => {
