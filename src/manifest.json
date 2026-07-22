@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "QueueTube",
+  "version": "1.0.0",
+  "description": "Transforms YouTube into a single-player experience with a persistent queue.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "webNavigation",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "https://www.youtube.com/oembed*",
+    "https://noembed.com/*"
+  ],
+  "background": {
+    "scripts": ["background/index.js"],
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content/index.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/index.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "commands": {
+    "gather-tabs": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Q"
+      },
+      "description": "Gather all open YouTube tabs into QueueTube"
+    },
+    "next-video": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+N"
+      },
+      "description": "Play next video in queue"
+    },
+    "previous-video": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P"
+      },
+      "description": "Play previous video in queue"
+    },
+    "toggle-queue": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L"
+      },
+      "description": "Toggle Queue Sidebar"
+    }
+  }
+}
