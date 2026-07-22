@@ -46,6 +46,7 @@ function ensureHostPlacement() {
   if (!queueParent || shadowContainer.parentElement === queueParent) return;
 
   styleHost(shadowContainer, true);
+  shadowContainer.style.visibility = 'visible';
   queueParent.prepend(shadowContainer);
   console.log('[QueueTube Content] Moved QueueTube host into YouTube secondary column.');
 }
@@ -87,8 +88,12 @@ function injectQueueTubeSidebar() {
   shadow.appendChild(mountPoint);
 
   if (queueParent) {
+    // Secondary column already exists — place immediately and show
+    host.style.visibility = 'visible';
     queueParent.prepend(host);
   } else {
+    // Secondary column not ready yet — hide until ensureHostPlacement() moves it
+    host.style.visibility = 'hidden';
     document.body.appendChild(host);
   }
   shadowContainer = host;

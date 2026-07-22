@@ -360,12 +360,29 @@ if (extApi.commands && extApi.commands.onCommand) {
     if (command === 'gather-tabs') {
       await gatherAllYouTubeTabs();
     } else if (command === 'next-video') {
-      if (state.queue.length > 0) {
-        const nextItem = state.queue[0];
+      // Play the next item after the current one
+      const currentIndex = state.queue.findIndex((item) => item.videoId === state.currentVideoId);
+      const nextIndex = currentIndex >= 0 && currentIndex < state.queue.length - 1 ? currentIndex + 1 : 0;
+      const nextItem = state.queue[nextIndex];
+      if (nextItem && currentMasterTabId !== null) {
+        await extApi.tabs.update(currentMasterTabId, {
+          url: buildWatchUrl(nextItem.videoId),
+          active: true
+        });
+        await saveState({ currentVideoId: nextItem.videoId });
+      }
+    } else if (command === 'previous-video') {
+      // Play previous from history
+      if (state.history.length > 0) {
+        const prevItem = state.history[0];
         if (currentMasterTabId !== null) {
           await extApi.tabs.update(currentMasterTabId, {
-            url: buildWatchUrl(nextItem.videoId),
+            url: buildWatchUrl(prevItem.videoId),
             active: true
+          });
+          await saveState({
+            currentVideoId: prevItem.videoId,
+            history: state.history.slice(1)
           });
         }
       }

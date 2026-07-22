@@ -156,21 +156,41 @@ export const Options: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-white block mb-1.5">Queue Location</label>
+              <p className="text-xs text-yt-muted mb-2.5">Controls where the QueueTube sidebar is anchored on YouTube.</p>
               <div className="grid grid-cols-3 gap-3">
-                {(['right', 'bottom', 'floating'] as const).map((loc) => (
-                  <button
-                    key={loc}
-                    onClick={() => store.setSettings({ queueLocation: loc })}
-                    className={`p-3 rounded-xl border text-xs font-semibold capitalize flex items-center justify-center gap-2 transition-all ${
-                      store.settings.queueLocation === loc
-                        ? 'border-yt-red bg-yt-red/10 text-white shadow-glow'
-                        : 'border-white/10 bg-yt-paper/30 text-yt-muted hover:text-white'
-                    }`}
-                  >
-                    {store.settings.queueLocation === loc && <Check className="w-3.5 h-3.5 text-yt-red" />}
-                    {loc} Sidebar
-                  </button>
-                ))}
+                {(['right', 'bottom', 'floating'] as const).map((loc) => {
+                  const labels: Record<string, string> = {
+                    right: 'Right Sidebar',
+                    bottom: 'Bottom Bar',
+                    floating: 'Floating',
+                  };
+                  const notes: Record<string, string> = {
+                    right: 'Embedded in YouTube secondary column',
+                    bottom: 'Coming soon',
+                    floating: 'Coming soon',
+                  };
+                  const disabled = loc !== 'right';
+                  return (
+                    <button
+                      key={loc}
+                      onClick={() => !disabled && store.setSettings({ queueLocation: loc })}
+                      disabled={disabled}
+                      className={`p-3 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1 transition-all ${
+                        store.settings.queueLocation === loc
+                          ? 'border-yt-red bg-yt-red/10 text-white shadow-glow'
+                          : disabled
+                          ? 'border-white/5 bg-yt-paper/20 text-yt-muted/40 cursor-not-allowed'
+                          : 'border-white/10 bg-yt-paper/30 text-yt-muted hover:text-white'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {store.settings.queueLocation === loc && <Check className="w-3.5 h-3.5 text-yt-red" />}
+                        {labels[loc]}
+                      </span>
+                      {disabled && <span className="text-[10px] font-normal opacity-60">{notes[loc]}</span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -186,21 +206,24 @@ export const Options: React.FC = () => {
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="flex items-center justify-between p-3 rounded-xl bg-yt-paper/30">
               <span className="text-yt-muted">Gather Open Tabs</span>
-              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Ctrl+Shift+Q</kbd>
+              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Alt+Shift+Q</kbd>
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl bg-yt-paper/30">
               <span className="text-yt-muted">Play Next Video</span>
-              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Ctrl+Shift+N</kbd>
+              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Alt+Shift+N</kbd>
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl bg-yt-paper/30">
               <span className="text-yt-muted">Play Previous Video</span>
-              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Ctrl+Shift+P</kbd>
+              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Alt+Shift+P</kbd>
             </div>
             <div className="flex items-center justify-between p-3 rounded-xl bg-yt-paper/30">
               <span className="text-yt-muted">Toggle Queue Sidebar</span>
-              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Ctrl+Shift+L</kbd>
+              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Alt+Shift+L</kbd>
             </div>
           </div>
+          <p className="text-[11px] text-yt-muted/60 mt-2">
+            To change shortcuts, go to <span className="text-white/60 font-mono">chrome://extensions/shortcuts</span> (Chrome) or <span className="text-white/60 font-mono">about:addons</span> (Firefox).
+          </p>
         </section>
       </main>
     </div>

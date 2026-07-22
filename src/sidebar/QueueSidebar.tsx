@@ -119,7 +119,7 @@ export const QueueSidebar: React.FC = () => {
         <button
           onClick={() => store.setSettings({ sidebarCollapsed: false })}
           className="flex items-center gap-2 bg-yt-paper border border-yt-border/80 hover:bg-yt-hover text-white px-3 py-2.5 rounded-l-2xl shadow-panel transition-all group"
-          title="Open QueueTube Sidebar (Ctrl+Shift+L)"
+          title="Open QueueTube Sidebar (Alt+Shift+L)"
         >
           <div className="relative">
             <ListVideo className="w-5 h-5 text-yt-red group-hover:scale-110 transition-transform" />
@@ -172,7 +172,7 @@ export const QueueSidebar: React.FC = () => {
           <button
             onClick={handleGatherTabs}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-yt-red hover:bg-yt-redHover text-white text-xs font-medium rounded-lg shadow-glow transition-all"
-            title="Gather all open YouTube tabs (Ctrl+Shift+Q)"
+            title="Gather all open YouTube tabs (Alt+Shift+Q)"
           >
             <Layers className="w-3.5 h-3.5" />
             <span>Gather</span>
@@ -206,7 +206,7 @@ export const QueueSidebar: React.FC = () => {
           <button
             onClick={() => store.setSettings({ sidebarCollapsed: true })}
             className="p-1.5 text-yt-muted hover:text-white hover:bg-yt-hover rounded-lg transition-colors"
-            title="Collapse Sidebar (Ctrl+Shift+L)"
+            title="Collapse Sidebar (Alt+Shift+L)"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

@@ -10,7 +10,7 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
-  Layout
+  PanelRight
 } from 'lucide-react';
 
 export const Popup: React.FC = () => {
@@ -113,18 +113,19 @@ export const Popup: React.FC = () => {
         <ExternalLink className="w-3.5 h-3.5 text-yt-muted group-hover:text-white transition-colors" />
       </div>
 
-      {/* Primary Action Button: Force Inject Sidebar */}
+      {/* Toggle Sidebar Button */}
       <button
         onClick={() => {
           const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
           if (runtime && runtime.sendMessage) {
-            runtime.sendMessage({ type: 'FORCE_INJECT_SIDEBAR' });
+            runtime.sendMessage({ type: 'TOGGLE_SIDEBAR' });
           }
         }}
-        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-glow transition-all active:scale-98"
+        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-yt-paper hover:bg-yt-hover border border-yt-border text-white text-xs font-semibold rounded-xl transition-all active:scale-98"
       >
-        <Layout className="w-4 h-4" />
-        <span>Force Show Sidebar</span>
+        <PanelRight className="w-4 h-4" />
+        <span>Toggle Sidebar</span>
+        <span className="text-[10px] opacity-60 font-mono ml-auto">Alt+Shift+L</span>
       </button>
 
       {/* Primary Action Button: Gather Tabs */}
@@ -134,7 +135,7 @@ export const Popup: React.FC = () => {
       >
         <Layers className="w-4 h-4" />
         <span>Gather YouTube Tabs</span>
-        <span className="text-[10px] opacity-75 font-mono ml-auto" title="Manage shortcuts in about:addons">Alt+Shift+Q</span>
+        <span className="text-[10px] opacity-75 font-mono ml-auto">Alt+Shift+Q</span>
       </button>
 
       {/* Currently Playing Card */}
@@ -162,7 +163,7 @@ export const Popup: React.FC = () => {
             onClick={() => store.playPrevious()}
             disabled={store.history.length === 0}
             className="p-2 text-yt-muted hover:text-white disabled:opacity-30 disabled:hover:text-yt-muted rounded-lg transition-colors"
-            title="Previous Video (Alt+Shift+P - Edit in about:addons)"
+            title="Previous Video (Alt+Shift+P)"
           >
             <SkipBack className="w-4 h-4" />
           </button>
@@ -171,7 +172,7 @@ export const Popup: React.FC = () => {
             onClick={() => store.playNext()}
             disabled={store.queue.length === 0}
             className="p-2 text-yt-muted hover:text-white disabled:opacity-30 disabled:hover:text-yt-muted rounded-lg transition-colors"
-            title="Next Video (Alt+Shift+N - Edit in about:addons)"
+            title="Next Video (Alt+Shift+N)"
           >
             <SkipForward className="w-4 h-4" />
           </button>
