@@ -5,6 +5,7 @@ const extApi = typeof browser !== 'undefined' ? browser : chrome;
 
 // Cache active master tab ID
 let currentMasterTabId: number | null = null;
+const bypassedVideoTabs = new Set<string>();
 
 async function getActiveYouTubeTabId(): Promise<number | null> {
   try {
@@ -185,8 +186,12 @@ extApi.tabs.onUpdated.addListener(
     // Secondary YouTube tab created/navigated! Check if it's a watch video link
     const state = await getQueueState();
     const videoId = extractVideoId(tab.url);
+    
+    if (videoId && tab.url.includes('queueTubeBypass=1')) {
+      bypassedVideoTabs.add(`${tabId}:${videoId}`);
+    }
 
-    if (state.settings.autoGather && videoId) {
+    if (state.settings.autoGather && videoId && !bypassedVideoTabs.has(`${tabId}:${videoId}`) && !tab.url.includes('queueTubeBypass=1')) {
       console.log(`[QueueTube Background] Intercepting secondary watch tab ${tabId} for video ${videoId}`);
 
       const meta = await fetchVideoMetadata(tab.url);
@@ -223,8 +228,15 @@ extApi.tabs.onActivated.addListener(async (activeInfo) => {
   await checkAndRestoreMasterTab();
 });
 
-// Handle Master Tab Closure
+// Handle Tab Closure
 extApi.tabs.onRemoved.addListener(async (tabId: number) => {
+  // Clean up bypassedVideoTabs for this tab
+  for (const key of bypassedVideoTabs) {
+    if (key.startsWith(`${tabId}:`)) {
+      bypassedVideoTabs.delete(key);
+    }
+  }
+
   if (tabId === currentMasterTabId) {
     console.log('[QueueTube Background] Master Player tab closed:', tabId);
     currentMasterTabId = null;
@@ -344,6 +356,58 @@ extApi.runtime.onMessage.addListener(
 
     if (message.type === 'TOGGLE_SIDEBAR') {
       toggleSidebarOnYouTubeTab().then((success) => sendResponse({ success }));
+      return true;
+    }
+
+    if (message.type === 'OPEN_OPTIONS_PAGE') {
+      extApi.runtime.openOptionsPage();
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (message.type === 'OPEN_NEW_TAB') {
+      if (message.url) {
+        extApi.tabs.create({ url: message.url, active: true });
+      }
+      sendResponse({ success: true });
+      return true;
+    }
+
+    if (message.type === 'IS_MASTER_TAB') {
+      const tabId = sender.tab?.id;
+      sendResponse({ isMaster: tabId === currentMasterTabId });
+      return true;
+    }
+
+    if (message.type === 'CHECK_AUTOGATHER') {
+      const tabId = sender.tab?.id;
+      const url = message.url;
+      if (tabId && url && tabId !== currentMasterTabId) {
+        const videoId = extractVideoId(url);
+        getQueueState().then(async (state) => {
+          if (state.settings.autoGather && videoId && !bypassedVideoTabs.has(`${tabId}:${videoId}`) && !url.includes('queueTubeBypass=1')) {
+            console.log(`[QueueTube Background] CHECK_AUTOGATHER intercepting secondary watch tab ${tabId} for video ${videoId}`);
+            const meta = await fetchVideoMetadata(url);
+            await addToQueue({
+              videoId,
+              title: meta.title || `Video (${videoId})`,
+              channel: meta.channel || 'YouTube',
+              duration: meta.duration || '--:--',
+              thumbnail: meta.thumbnail || '',
+              url
+            });
+            try {
+              await extApi.tabs.remove(tabId);
+            } catch (e) {}
+            if (state.settings.autoFocusPlayer && currentMasterTabId !== null) {
+              try {
+                await extApi.tabs.update(currentMasterTabId, { active: true });
+              } catch (e) {}
+            }
+          }
+        });
+      }
+      sendResponse({ success: true });
       return true;
     }
 

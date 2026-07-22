@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { QueueItem } from '../types';
-import { Play, Trash2, Copy, ExternalLink, GripVertical } from 'lucide-react';
+import { Trash2, ExternalLink, Share, MoreVertical, Play } from 'lucide-react';
 
 interface SidebarItemProps {
   item: QueueItem;
@@ -29,16 +29,81 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({
   onDragEnd,
   onDrop,
 }) => {
-  const [copied, setCopied] = React.useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const path = e.composedPath();
+      if (menuRef.current && !path.includes(menuRef.current) && buttonRef.current && !path.includes(buttonRef.current)) {
+        setMenuOpen(false);
+      }
+    };
+    const queueScrollContainer = document.getElementById('queue-scroll-container');
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.body.style.overflow = 'hidden';
+      if (queueScrollContainer) queueScrollContainer.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      if (queueScrollContainer) queueScrollContainer.style.overflow = '';
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.body.style.overflow = '';
+      if (queueScrollContainer) queueScrollContainer.style.overflow = '';
+    };
+  }, [menuOpen]);
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     navigator.clipboard.writeText(item.url);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => {
+      setCopied(false);
+      setMenuOpen(false);
+    }, 1500);
   };
 
-  // Determine if the duration badge should be shown (exclude placeholder values)
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: item.title,
+          url: item.url,
+        });
+        setMenuOpen(false);
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          handleCopy(e);
+        } else {
+          setMenuOpen(false);
+        }
+      }
+    } else {
+      handleCopy(e);
+    }
+  };
+
+  const handleMenuToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!menuOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      // Position fixed relative to viewport to escape overflow constraints
+      let topPos = rect.bottom + 4;
+      // If menu goes off bottom of screen, show above button
+      if (topPos + 160 > window.innerHeight) {
+        topPos = rect.top - 164;
+      }
+      setMenuPos({ top: topPos, right: window.innerWidth - rect.right });
+    }
+    setMenuOpen(!menuOpen);
+  };
+
   const showDuration =
     item.duration &&
     item.duration !== '--:--' &&
@@ -47,106 +112,132 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({
 
   return (
     <div
-      draggable
-      onDragStart={(e) => onDragStart(e, index)}
       onDragOver={(e) => onDragOver(e, index)}
-      onDragEnd={onDragEnd}
       onDrop={(e) => onDrop(e, index)}
-      className={`group relative flex items-center gap-2 p-2.5 rounded-xl transition-all duration-200 select-none ${
-        isDragging
-          ? 'opacity-40 scale-95'
-          : isDragOver
-          ? 'bg-yt-red/20 border border-yt-red/50 scale-[1.01]'
-          : isCurrent
-          ? 'bg-yt-red/10 border border-yt-red/40'
-          : 'bg-yt-paper/40 hover:bg-yt-paper border border-white/5 hover:border-white/10'
-      }`}
+      className="flex flex-col relative"
     >
-      {/* Drag Handle */}
+      {/* "Make Space" Placeholder when dragging over this item */}
       <div
-        className="text-yt-muted hover:text-white p-1 cursor-grab active:cursor-grabbing rounded opacity-40 group-hover:opacity-100 transition-opacity flex-shrink-0"
-        title="Drag to reorder"
-      >
-        <GripVertical className="w-4 h-4" />
-      </div>
+        className={`transition-all duration-300 ease-in-out w-full border-t-2 border-yt-red ${isDragOver && !isDragging ? 'h-[7.2rem] opacity-100 mb-[0.4rem]' : 'h-0 opacity-0 border-transparent mb-0'}`}
+      />
 
-      {/* Position Index */}
-      <span className="text-xs font-mono text-yt-muted w-4 text-center flex-shrink-0">
-        {index + 1}
-      </span>
-
-      {/* Thumbnail */}
       <div
-        className="relative w-[120px] h-[68px] flex-shrink-0 rounded-lg overflow-hidden cursor-pointer group/thumb bg-black/40"
-        onClick={() => onPlay(item.videoId)}
+        draggable
+        onDragStart={(e) => {
+          setMenuOpen(false);
+          onDragStart(e, index);
+        }}
+        onDragEnd={onDragEnd}
+        className={`group relative flex items-center gap-[0.4rem] py-[0.4rem] px-[0.4rem] transition-colors duration-200 select-none ${isDragging
+          ? 'opacity-40'
+          : isCurrent
+            ? 'bg-[#311607]'
+            : 'bg-transparent hover:bg-[#272727]'
+          }`}
       >
-        <img
-          src={item.thumbnail}
-          alt={item.title}
-          className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`;
-          }}
-        />
-        {/* Play Overlay */}
-        <div className="absolute inset-0 bg-black/40 group-hover/thumb:bg-black/20 flex items-center justify-center transition-colors">
-          <Play className={`w-5 h-5 fill-white text-white ${isCurrent ? 'opacity-100' : 'opacity-80 group-hover/thumb:opacity-100'}`} />
+        {/* Drag Handle or Play Icon */}
+        <div
+          className={`w-[2.4rem] flex justify-center items-center flex-shrink-0 text-yt-muted ${isCurrent ? 'text-white' : 'cursor-grab active:cursor-grabbing hover:text-white'
+            }`}
+        >
+          {isCurrent ? (
+            <Play className="w-[1.6rem] h-[1.6rem] fill-white/40" style={{ border: "none", outline: "none" }} />
+          ) : (
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-[2.4rem] h-[2.4rem] opacity-0 group-hover:opacity-100 transition-opacity">
+              <path d="M21,10H3V9h18V10z M21,14H3v1h18V14z" />
+            </svg>
+          )}
         </div>
 
-        {/* Duration Badge */}
-        {showDuration && (
-          <span className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 text-[10px] text-white font-medium rounded">
-            {item.duration}
-          </span>
-        )}
-      </div>
-
-      {/* Metadata Info */}
-      <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
-        <h4
+        {/* Thumbnail — exactly 100x56 proportional, scaling with rem */}
+        <div
+          className="relative w-[10rem] h-[5.6rem] flex-shrink-0 rounded-[0.8rem] overflow-hidden cursor-pointer bg-black/40"
           onClick={() => onPlay(item.videoId)}
-          className={`text-[13px] font-medium line-clamp-2 leading-tight cursor-pointer hover:text-yt-red transition-colors ${
-            isCurrent ? 'text-yt-red' : 'text-yt-text'
-          }`}
-          title={item.title}
         >
-          {item.title}
-        </h4>
-        <p className="text-[12px] text-yt-muted truncate">{item.channel}</p>
+          <img
+            src={item.thumbnail}
+            alt={item.title}
+            className="w-full h-full object-cover hover:opacity-80 transition-opacity duration-200"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`;
+            }}
+          />
+          {showDuration && (
+            <span className="absolute bottom-[0.4rem] right-[0.4rem] px-[0.4rem] py-[0.2rem] bg-black/80 text-[1.2rem] leading-none text-white font-medium rounded-[0.4rem]">
+              {item.duration}
+            </span>
+          )}
+        </div>
+
+        {/* Metadata */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-[0.4rem] ml-[0.4rem]">
+          <h4
+            onClick={() => onPlay(item.videoId)}
+            className={`text-[1.4rem] font-medium line-clamp-2 leading-[2rem] cursor-pointer hover:text-white transition-colors ${isCurrent ? 'text-white' : 'text-yt-text'
+              }`}
+            title={item.title}
+          >
+            {item.title}
+          </h4>
+          <p className={`text-[1.2rem] truncate ${isCurrent ? 'text-white/70' : 'text-yt-muted'}`}>
+            {item.channel}
+          </p>
+        </div>
+
+        {/* Meatball Menu */}
+        <div className="relative flex-shrink-0">
+          <button
+            ref={buttonRef}
+            onClick={handleMenuToggle}
+            className={`p-[0.6rem] hover:text-white rounded-full transition-colors ${menuOpen ? 'opacity-100 text-white bg-white/10' : 'opacity-0 group-hover:opacity-100 text-yt-text hover:bg-white/10'
+              }`}
+          >
+            <MoreVertical className="w-[1.8rem] h-[1.8rem]" />
+          </button>
+        </div>
       </div>
 
-      {/* Hover Actions Bar */}
-      <div className="flex items-center gap-1 bg-yt-dark/95 backdrop-blur px-1.5 py-1 rounded-lg border border-white/10 shadow-lg">
-        <button
-          onClick={handleCopy}
-          title={copied ? 'Copied!' : 'Copy video link'}
-          className="p-1 hover:bg-white/10 text-yt-muted hover:text-white rounded transition-colors"
+      {/* Fixed Portal-like Menu to escape overflow:hidden/auto */}
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          style={{ position: 'fixed', top: menuPos.top, right: menuPos.right }}
+          className="w-[20rem] bg-[#282828] border border-white/10 rounded-[1.2rem] shadow-xl py-[0.8rem] z-[9999] flex flex-col overflow-hidden"
         >
-          <Copy className="w-3.5 h-3.5" />
-        </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen(false);
+              const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
+              runtime.sendMessage({ type: 'OPEN_NEW_TAB', url: item.url + (item.url.includes('?') ? '&' : '?') + 'queueTubeBypass=1' });
+            }}
+            className="flex items-center gap-[1.6rem] px-[1.6rem] py-[1rem] text-[1.4rem] text-yt-text hover:bg-white/10 transition-colors cursor-pointer w-full text-left"
+          >
+            <ExternalLink className="w-[1.8rem] h-[1.8rem]" />
+            Open in new tab
+          </button>
 
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          title="Open in new tab"
-          className="p-1 hover:bg-white/10 text-yt-muted hover:text-white rounded transition-colors"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-[1.6rem] px-[1.6rem] py-[1rem] text-[1.4rem] text-yt-text hover:bg-white/10 transition-colors w-full text-left"
+          >
+            <Share className="w-[1.8rem] h-[1.8rem]" />
+            {copied ? 'Link Copied!' : 'Share'}
+          </button>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(item.id);
-          }}
-          title="Remove from queue"
-          className="p-1 bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 rounded transition-colors"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
-      </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen(false);
+              onRemove(item.id);
+            }}
+            className="flex items-center gap-[1.6rem] px-[1.6rem] py-[1rem] text-[1.4rem] text-yt-text hover:bg-white/10 transition-colors w-full text-left"
+          >
+            <Trash2 className="w-[1.8rem] h-[1.8rem]" />
+            Remove from queue
+          </button>
+        </div>
+      )}
     </div>
   );
 };

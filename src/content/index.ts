@@ -51,6 +51,21 @@ function ensureHostPlacement() {
   console.log('[QueueTube Content] Moved QueueTube host into YouTube secondary column.');
 }
 
+async function checkAndInject() {
+  try {
+    const res = await extApi.runtime.sendMessage({ type: 'IS_MASTER_TAB' });
+    if (res && res.isMaster) {
+      injectQueueTubeSidebar();
+    } else {
+      const staleHost = document.getElementById('queuetube-host');
+      if (staleHost) {
+        staleHost.remove();
+        shadowContainer = null;
+      }
+    }
+  } catch (e) {}
+}
+
 function injectQueueTubeSidebar() {
   if (shadowContainer && document.body.contains(shadowContainer)) {
     console.log('[QueueTube Content] Host element already injected.');
@@ -118,11 +133,16 @@ function setupVideoPlayerObserver() {
 
     videoEl.addEventListener('ended', async () => {
       console.log('[QueueTube Content] Video ended event fired. Checking auto-play...');
-      const store = useQueueStore.getState();
-      if (store.queue.length > 0) {
-        console.log('[QueueTube Content] Advancing to next video in queue...');
-        await store.playNext();
-      }
+      try {
+        const res = await extApi.runtime.sendMessage({ type: 'IS_MASTER_TAB' });
+        if (res && res.isMaster) {
+          const store = useQueueStore.getState();
+          if (store.queue.length > 0) {
+            console.log('[QueueTube Content] Advancing to next video in queue...');
+            await store.playNext();
+          }
+        }
+      } catch (e) {}
     });
   };
 
@@ -140,10 +160,16 @@ function setupVideoPlayerObserver() {
 function setupNavigationObserver() {
   if (navigationObserverAttached) return;
   navigationObserverAttached = true;
-  const handleNav = () => {
+  const handleNav = async () => {
     const videoId = extractVideoId(window.location.href);
-    if (videoId) {
-      useQueueStore.getState().setCurrentVideoId(videoId);
+    const res = await extApi.runtime.sendMessage({ type: 'IS_MASTER_TAB' });
+    if (res && res.isMaster) {
+      if (videoId) {
+        useQueueStore.getState().setCurrentVideoId(videoId);
+      }
+      await checkAndInject();
+    } else {
+      extApi.runtime.sendMessage({ type: 'CHECK_AUTOGATHER', url: window.location.href });
     }
   };
   window.addEventListener('yt-navigate-finish', handleNav);
@@ -179,7 +205,7 @@ function initContentScript() {
 
   console.log('[QueueTube Content] Initializing content script on:', window.location.href);
   if (window.location.hostname.includes('youtube.com')) {
-    injectQueueTubeSidebar();
+    checkAndInject();
     setupVideoPlayerObserver();
     setupNavigationObserver();
   }

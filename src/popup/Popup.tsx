@@ -17,20 +17,15 @@ export const Popup: React.FC = () => {
   const store = useQueueStore();
 
   useEffect(() => {
-    console.log('[QueueTube Popup] Popup mounted. Initializing store...');
     store.init();
 
     // Send CHECK_MASTER_TAB to background script
     const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
     if (runtime && runtime.sendMessage) {
-      console.log('[QueueTube Popup] Sending CHECK_MASTER_TAB message to background...');
       runtime.sendMessage({ type: 'CHECK_MASTER_TAB' }, (response: any) => {
-        console.log('[QueueTube Popup] Received CHECK_MASTER_TAB response:', response);
         if (response && response.state) {
-          console.log('[QueueTube Popup] Updating store with background state:', response.state);
           useQueueStore.setState({ ...response.state });
         } else if (response && response.masterTabId !== undefined) {
-          console.log('[QueueTube Popup] Updating masterTabId in store:', response.masterTabId);
           useQueueStore.setState({ masterTabId: response.masterTabId });
         }
       });
@@ -38,7 +33,6 @@ export const Popup: React.FC = () => {
   }, []);
 
   const handleGatherTabs = () => {
-    console.log('[QueueTube Popup] User clicked Gather Tabs');
     const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
     if (runtime && runtime.sendMessage) {
       runtime.sendMessage({ type: 'GATHER_TABS' });
@@ -46,7 +40,6 @@ export const Popup: React.FC = () => {
   };
 
   const handleOpenPlayer = () => {
-    console.log('[QueueTube Popup] User clicked Focus/Open Player tab');
     const extApi = typeof browser !== 'undefined' ? browser : chrome;
     if (store.masterTabId !== null) {
       extApi.tabs.update(store.masterTabId, { active: true }).catch(() => {
@@ -58,7 +51,6 @@ export const Popup: React.FC = () => {
   };
 
   const handleOpenOptions = () => {
-    console.log('[QueueTube Popup] Opening options page...');
     const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
     if (runtime && runtime.openOptionsPage) {
       runtime.openOptionsPage();
@@ -113,30 +105,52 @@ export const Popup: React.FC = () => {
         <ExternalLink className="w-3.5 h-3.5 text-yt-muted group-hover:text-white transition-colors" />
       </div>
 
-      {/* Toggle Sidebar Button */}
-      <button
-        onClick={() => {
-          const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
-          if (runtime && runtime.sendMessage) {
-            runtime.sendMessage({ type: 'TOGGLE_SIDEBAR' });
-          }
-        }}
-        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-yt-paper hover:bg-yt-hover border border-yt-border text-white text-xs font-semibold rounded-xl transition-all active:scale-98"
-      >
-        <PanelRight className="w-4 h-4" />
-        <span>Toggle Sidebar</span>
-        <span className="text-[10px] opacity-60 font-mono ml-auto">Alt+Shift+L</span>
-      </button>
+      {/* Auto-gather Toggle */}
+      <div className="flex items-center justify-between p-3 rounded-xl bg-yt-paper/50 border border-white/5">
+        <div>
+          <span className="text-xs font-semibold text-white">Auto-gather Tabs</span>
+          <p className="text-[10px] text-yt-muted">Automatically add new YouTube tabs</p>
+        </div>
+        <button
+          onClick={() => store.setSettings({ autoGather: !store.settings.autoGather })}
+          className={`w-10 h-5 rounded-full relative transition-colors ${
+            store.settings.autoGather ? 'bg-yt-red' : 'bg-yt-paper border border-white/10'
+          }`}
+        >
+          <div
+            className={`absolute top-[1px] w-[18px] h-[18px] rounded-full bg-white transition-transform ${
+              store.settings.autoGather ? 'translate-x-5' : 'translate-x-[1px] opacity-50'
+            }`}
+          />
+        </button>
+      </div>
 
-      {/* Primary Action Button: Gather Tabs */}
-      <button
-        onClick={handleGatherTabs}
-        className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-yt-red hover:bg-yt-redHover text-white text-xs font-semibold rounded-xl shadow-glow transition-all active:scale-98"
-      >
-        <Layers className="w-4 h-4" />
-        <span>Gather YouTube Tabs</span>
-        <span className="text-[10px] opacity-75 font-mono ml-auto">Alt+Shift+Q</span>
-      </button>
+      <div className="flex gap-2">
+        {/* Toggle Sidebar Button */}
+        <button
+          onClick={() => {
+            const runtime = typeof browser !== 'undefined' ? browser.runtime : chrome.runtime;
+            if (runtime && runtime.sendMessage) {
+              runtime.sendMessage({ type: 'TOGGLE_SIDEBAR' });
+            }
+          }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 bg-yt-paper hover:bg-yt-hover border border-yt-border text-white text-xs font-semibold rounded-xl transition-all active:scale-98"
+          title="Toggle Sidebar (Alt+Shift+L)"
+        >
+          <PanelRight className="w-4 h-4" />
+          <span>Toggle Sidebar</span>
+        </button>
+
+        {/* Primary Action Button: Gather Tabs */}
+        <button
+          onClick={handleGatherTabs}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 bg-yt-red hover:bg-yt-redHover text-white text-xs font-semibold rounded-xl shadow-glow transition-all active:scale-98"
+          title="Gather YouTube Tabs (Alt+Shift+Q)"
+        >
+          <Layers className="w-4 h-4" />
+          <span>Gather Tabs</span>
+        </button>
+      </div>
 
       {/* Currently Playing Card */}
       {currentItem && (
@@ -191,12 +205,6 @@ export const Popup: React.FC = () => {
             <Trash2 className="w-4 h-4" />
           </button>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className="pt-1 flex items-center justify-between text-[10px] text-yt-muted border-t border-yt-border/30">
-        <span>QueueTube v1.0</span>
-        <span>Auto-gather: <b className={store.settings.autoGather ? 'text-emerald-400' : 'text-yt-muted'}>{store.settings.autoGather ? 'ON' : 'OFF'}</b></span>
       </div>
     </div>
   );
