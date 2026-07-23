@@ -64,8 +64,8 @@ export const Popup: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-yt-red/10 border border-yt-red/30 shadow-glow">
-            <ListVideo className="w-5 h-5 text-yt-red" />
+          <div className="p-1 rounded-xl bg-yt-red/10 border border-yt-red/30 shadow-glow flex items-center justify-center">
+            <img src="/icons/icon48.png" alt="QueueTube Logo" className="w-6 h-6 object-contain drop-shadow-md" />
           </div>
           <div>
             <h1 className="text-base font-bold tracking-tight text-white">QueueTube</h1>

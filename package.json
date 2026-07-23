@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node scripts/build.js",
     "build": "tsc && node scripts/build.js",
+    "package": "web-ext build -s dist -a builds --overwrite-dest",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
     "@types/react-dom": "^18.3.0",
     "@types/webextension-polyfill": "^0.10.7",
     "@vitejs/plugin-react": "^4.3.0",
+    "archiver": "^8.0.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",

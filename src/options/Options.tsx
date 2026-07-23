@@ -31,8 +31,8 @@ export const Options: React.FC = () => {
       <header className="border-b border-yt-border/50 bg-yt-paper/50 backdrop-blur sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-yt-red/10 border border-yt-red/30 shadow-glow">
-              <ListVideo className="w-6 h-6 text-yt-red" />
+            <div className="p-1.5 rounded-xl bg-yt-red/10 border border-yt-red/30 shadow-glow flex items-center justify-center">
+              <img src="/icons/icon48.png" alt="QueueTube Logo" className="w-7 h-7 object-contain drop-shadow-md" />
             </div>
             <div>
               <h1 className="text-lg font-bold text-white tracking-tight">QueueTube Settings</h1>
