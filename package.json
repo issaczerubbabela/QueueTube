@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node scripts/build.js",
     "build": "tsc && node scripts/build.js",
-    "package": "web-ext build -s dist -a builds --overwrite-dest",
+    "package": "npm run build && npx web-ext build -s dist -a builds --overwrite-dest",
+    "package-source": "node scripts/source.js",
     "preview": "vite preview"
   },
   "dependencies": {
