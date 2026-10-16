@@ -27,7 +27,7 @@ export type Command =
   | { type: 'status' };
 
 /** Sections of the settings page that other surfaces link to. */
-export type OptionsSection = 'whats-new';
+export type OptionsSection = 'guide' | 'whats-new';
 
 export interface Status {
   playerTabId: number | null;

@@ -253,3 +253,56 @@ kbd {
   font: 500 13px/18px var(--font);
   background: var(--tonal);
 }
+
+/* ── Guide ────────────────────────────────────────────────────────────────── */
+
+.guide-group h3 {
+  margin: 0;
+  padding: 16px 0 4px;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+}
+.guide-group:first-of-type h3 {
+  padding-top: 0;
+}
+.guide-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+.guide-meta kbd {
+  font-size: 12px;
+  line-height: 24px;
+}
+.guide-meta a.muted {
+  text-decoration: none;
+}
+.guide-meta a.muted:hover {
+  text-decoration: underline;
+}
+a.link {
+  text-decoration: none;
+}
+.section-sub a {
+  color: var(--link);
+  text-decoration: none;
+}
+.section-sub a:hover {
+  text-decoration: underline;
+}
+
+/* A setting the Guide just linked to. */
+.setting:target {
+  animation: target-flash 2s ease-out;
+}
+@keyframes target-flash {
+  from {
+    background: var(--tonal);
+  }
+  to {
+    background: transparent;
+  }
+}

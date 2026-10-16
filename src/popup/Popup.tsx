@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  CircleHelp,
   Layers,
   ListVideo,
   MonitorPlay,
@@ -14,9 +15,10 @@ import {
 import browser from 'webextension-polyfill';
 import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
-import { Status, send } from '../shared/messages';
+import { OptionsSection, Status, send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
 import { Thumb, Title } from '../ui/components';
+import { formatShortcut } from '../ui/shortcut';
 import { formatRemaining, pluralVideos } from '../ui/transfer';
 
 // Browsers cap extension popups at 600px tall; this keeps the popup inside that.
@@ -27,10 +29,15 @@ export function Popup() {
   const { ready, queue, settings, lastSeenVersion } = useExtensionState();
   const [status, setStatus] = useState<Status | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shortcuts, setShortcuts] = useState<Record<string, string>>({});
 
   const refreshStatus = () => send({ type: 'status' }).then(setStatus).catch(() => {});
   useEffect(() => {
     refreshStatus();
+    browser.commands
+      ?.getAll()
+      .then((all) => setShortcuts(Object.fromEntries(all.map((c) => [c.name ?? '', c.shortcut ?? '']))))
+      .catch(() => {});
   }, []);
 
   if (!ready || !status) return <div className="popup loading" />;
@@ -54,10 +61,11 @@ export function Popup() {
     refreshStatus();
   };
 
-  const openWhatsNew = async () => {
-    await send({ type: 'options/open', section: 'whats-new' });
+  const openOptions = async (section: OptionsSection) => {
+    await send({ type: 'options/open', section });
     window.close();
   };
+  const shortcut = (name: string) => shortcuts[name] && <kbd>{formatShortcut(shortcuts[name])}</kbd>;
 
   const goToPlayer = async () => {
     await send({ type: 'player/focus' });
@@ -72,13 +80,18 @@ export function Popup() {
           <h1>Cue</h1>
           <p>{[position, remaining].filter(Boolean).join(' · ')}</p>
         </div>
-        <button className="icon-btn" onClick={() => browser.runtime.openOptionsPage()} aria-label="Settings" title="Settings">
-          <SettingsIcon />
-        </button>
+        <span className="top-actions">
+          <button className="icon-btn" onClick={() => openOptions('guide')} aria-label="Guide" title="Guide">
+            <CircleHelp />
+          </button>
+          <button className="icon-btn" onClick={() => browser.runtime.openOptionsPage()} aria-label="Settings" title="Settings">
+            <SettingsIcon />
+          </button>
+        </span>
       </header>
 
       {whatsNew && (
-        <button className="item whats-new" onClick={openWhatsNew}>
+        <button className="item whats-new" onClick={() => openOptions('whats-new')}>
           <Sparkles aria-hidden="true" />
           What's new in {whatsNew}
         </button>
@@ -142,12 +155,12 @@ export function Popup() {
         <button className="item" disabled={!Q.canGoBack(queue, settings)} onClick={() => send({ type: 'play/previous' })}>
           <SkipBack aria-hidden="true" />
           Play previous
-          <kbd>Alt+Shift+,</kbd>
+          {shortcut('previous-video')}
         </button>
         <button className="item" disabled={!Q.nextEntry(queue)} onClick={() => send({ type: 'play/next' })}>
           <SkipForward aria-hidden="true" />
           Play next
-          <kbd>Alt+Shift+.</kbd>
+          {shortcut('next-video')}
         </button>
       </nav>
 
@@ -157,7 +170,7 @@ export function Popup() {
         <button className="item" onClick={gather}>
           <Layers aria-hidden="true" />
           Gather open tabs
-          <kbd>Alt+Shift+Q</kbd>
+          {shortcut('gather-tabs')}
         </button>
         <button
           className="item"
@@ -166,7 +179,7 @@ export function Popup() {
         >
           {settings.sidebarCollapsed ? <PanelRightOpen aria-hidden="true" /> : <PanelRightClose aria-hidden="true" />}
           {settings.sidebarCollapsed ? 'Expand queue panel' : 'Collapse queue panel'}
-          <kbd>Alt+Shift+L</kbd>
+          {shortcut('toggle-queue')}
         </button>
         <label className="item">
           <ListVideo aria-hidden="true" />

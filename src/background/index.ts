@@ -332,7 +332,12 @@ function onLaunch(isBrowserStart: boolean) {
 browser.runtime.onStartup.addListener(() => onLaunch(true));
 browser.runtime.onInstalled.addListener(({ reason }) => {
   onLaunch(false);
-  // A fresh install has nothing new to announce. An update leaves the last version seen alone,
-  // so the What's new notice shows (including from 1.1.1, which never stored one).
-  if (reason === 'install') serial(() => saveLastSeenVersion(browser.runtime.getManifest().version));
+  // A fresh install has nothing new to announce, and opens the Guide instead. An update leaves the
+  // last version seen alone, so the What's new notice shows (including from 1.1.1, which never stored one).
+  if (reason === 'install') {
+    serial(async () => {
+      await saveLastSeenVersion(browser.runtime.getManifest().version);
+      await openOptions('guide');
+    });
+  }
 });

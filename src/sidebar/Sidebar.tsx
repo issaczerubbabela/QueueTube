@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
+  CircleHelp,
   EllipsisVertical,
   Layers,
   ListPlus,
@@ -204,6 +205,7 @@ export function Sidebar() {
               },
             },
             'separator',
+            { label: 'Guide', icon: <CircleHelp />, onSelect: () => send({ type: 'options/open', section: 'guide' }) },
             { label: 'Settings', icon: <SettingsIcon />, onSelect: () => send({ type: 'options/open' }) },
           ]}
         />

@@ -4,10 +4,11 @@ import { whatsNewVersion } from '../domain/changelog';
 import type { Settings } from '../domain/queue';
 import { send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
+import { formatShortcut } from '../ui/shortcut';
 import { exportQueue, importQueue, pluralVideos } from '../ui/transfer';
+import { Guide } from './Guide';
+import type { BooleanSetting, SettingAnchor } from './guideEntries';
 import { WhatsNew } from './WhatsNew';
-
-type BooleanSetting = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
 
 const QUEUE_SETTINGS: { key: BooleanSetting; title: string; detail: string }[] = [
   {
@@ -52,7 +53,16 @@ const COMMAND_LABELS: Record<string, string> = {
   'toggle-queue': 'Collapse or expand the panel',
 };
 
+/** What the Guide calls each row it links to. */
+const SETTING_TITLES: Record<SettingAnchor, string> = {
+  ...(Object.fromEntries([...QUEUE_SETTINGS, ...PLAYBACK_SETTINGS].map((s) => [s.key, s.title])) as Record<SettingAnchor, string>),
+  export: 'Export queue',
+  import: 'Import from file',
+  history: 'Clear history',
+};
+
 const SECTIONS = [
+  { id: 'guide', label: 'Guide' },
   { id: 'queueing', label: 'Queueing' },
   { id: 'playback', label: 'Playback' },
   { id: 'shortcuts', label: 'Keyboard shortcuts' },
@@ -64,7 +74,7 @@ function SettingRows({ rows, settings }: { rows: typeof QUEUE_SETTINGS; settings
   return (
     <>
       {rows.map(({ key, title, detail }) => (
-        <div key={key} className="setting">
+        <div key={key} id={`setting-${key}`} className="setting">
           <span className="setting-label" id={`label-${key}`}>
             {title}
           </span>
@@ -96,8 +106,17 @@ export function Options() {
   const version = browser.runtime.getManifest().version;
   const unseen = whatsNewVersion(lastSeenVersion, version) !== null;
 
+  // Shortcuts are changed in the browser's own settings, so read them again on coming back.
   useEffect(() => {
-    browser.commands?.getAll().then(setCommands).catch(() => {});
+    const refresh = () => browser.commands?.getAll().then(setCommands).catch(() => {});
+    const onVisible = () => document.visibilityState === 'visible' && refresh();
+    refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   // Highlight the nav entry for the section nearest the top of the viewport.
@@ -160,7 +179,15 @@ export function Options() {
 
         <main className="page">
           <p className="eyebrow">Cue</p>
-          <h1>Choose how your queue works</h1>
+          <h1>Make Cue work your way</h1>
+
+          <section id="guide">
+            <h2>Guide</h2>
+            <p className="section-sub">
+              What Cue can do and how to use it. For recent changes, see <a href="#whats-new">What's new</a>.
+            </p>
+            <Guide commands={commands} settingTitles={SETTING_TITLES} />
+          </section>
 
           <section id="queueing">
             <h2>Queueing</h2>
@@ -182,7 +209,7 @@ export function Options() {
               .map((c) => (
                 <div key={c.name} className="setting">
                   <span className="setting-label">{COMMAND_LABELS[c.name!]}</span>
-                  <span className="setting-control">{c.shortcut ? <kbd>{c.shortcut}</kbd> : <span className="muted">Not set</span>}</span>
+                  <span className="setting-control">{c.shortcut ? <kbd>{formatShortcut(c.shortcut)}</kbd> : <span className="muted">Not set</span>}</span>
                 </div>
               ))}
             <div className="setting">
@@ -198,7 +225,7 @@ export function Options() {
           <section id="queue">
             <h2>Your queue</h2>
             <p className="section-sub">Move your queue in and out of Cue as a text file of links</p>
-            <div className="setting">
+            <div id="setting-export" className="setting">
               <span className="setting-label">Export</span>
               <span className="setting-control stacked">
                 <button className="link" disabled={queue.entries.length === 0} onClick={() => exportQueue(queue.entries)}>
@@ -207,7 +234,7 @@ export function Options() {
                 <span className="muted">Saves {pluralVideos(queue.entries.length)} as a text file.</span>
               </span>
             </div>
-            <div className="setting">
+            <div id="setting-import" className="setting">
               <span className="setting-label">Import</span>
               <span className="setting-control stacked">
                 <button className="link" onClick={() => fileInput.current?.click()}>
@@ -227,7 +254,7 @@ export function Options() {
                 }}
               />
             </div>
-            <div className="setting">
+            <div id="setting-history" className="setting">
               <span className="setting-label">History</span>
               <span className="setting-control stacked">
                 <button className="link" disabled={queue.history.length === 0} onClick={() => send({ type: 'history/clear' })}>

@@ -32,6 +32,8 @@ Tab bookkeeping (player tab id, fresh tabs, free tabs, undo snapshot) lives in `
 
 `CHANGELOG.md` at the repo root is the only source for the settings page's What's new section: the build bundles it (`?raw`) and `domain/changelog.ts` parses it. The `lastSeenVersion` key in `storage.local` drives the What's new notice; a fresh install sets it on the `install` event, so only updates show the notice.
 
+The settings page's Guide is the list in `src/options/guideEntries.ts`: one entry per feature, grouped by task, optionally naming a manifest command (its live shortcut is shown) and a setting row to link to. Each new feature adds an entry there. A fresh install opens settings at `#guide`.
+
 ## Testing
 
 - `npm test` runs the domain unit tests (Vitest).
