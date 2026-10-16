@@ -77,7 +77,11 @@ export interface MenuItem {
   /** Draws attention, like the What's new notice. */
   accent?: boolean;
 }
-export type MenuEntry = MenuItem | 'separator';
+/** A small label above a group of items. */
+export interface MenuHeading {
+  heading: string;
+}
+export type MenuEntry = MenuItem | MenuHeading | 'separator';
 
 /**
  * A popover menu anchored to a button. It positions itself against the viewport so it is
@@ -164,6 +168,10 @@ export function Menu({
       {items.map((item, i) =>
         item === 'separator' ? (
           <div key={i} className="menu-sep" role="separator" />
+        ) : 'heading' in item ? (
+          <div key={i} className="menu-heading" role="presentation">
+            {item.heading}
+          </div>
         ) : (
           <button
             key={item.label}

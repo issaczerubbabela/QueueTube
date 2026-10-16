@@ -1,7 +1,7 @@
 // The protocol between UI surfaces / content script and the background worker.
 // UI surfaces never write queue state themselves; they send a Command (ADR 0001).
 import browser from 'webextension-polyfill';
-import type { Position, Settings } from '../domain/queue';
+import type { Position, Settings, SortOrder } from '../domain/queue';
 
 export type Command =
   /**
@@ -12,6 +12,9 @@ export type Command =
   | { type: 'queue/remove'; entryId: string }
   | { type: 'queue/move'; entryId: string; toIndex: number }
   | { type: 'queue/playNextInLine'; entryId: string }
+  /** Sorts or shuffles the entries after the current one; undoable. */
+  | { type: 'queue/sort'; order: SortOrder }
+  | { type: 'queue/shuffle' }
   /** Sets the Stop point to an entry (replacing any other), or clears it with null. */
   | { type: 'queue/stopPoint'; entryId: string | null }
   | { type: 'queue/clear' }

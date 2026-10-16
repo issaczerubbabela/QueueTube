@@ -26,6 +26,8 @@ import {
   restore,
   secondsLeft,
   setStopPoint,
+  shuffleUpcoming,
+  sortUpcoming,
   stopsHere,
   upcoming,
   videoEnded,
@@ -435,5 +437,66 @@ group('secondsLeft / endsAt', () => {
   it('ends at now plus the time left, from the clock', () => {
     expect(endsAt(timed(1), 100, { now: () => 1_000_000 })).toBe(1_000_000 + (200 + 100) * 1000);
     expect(endsAt(timed(3), 100, { now: () => 5 })).toBeNull();
+  });
+});
+
+group('sort and shuffle', () => {
+  const sample = (current: number | null): Queue => {
+    const q = enqueue(
+      EMPTY_QUEUE,
+      [
+        { ...video('a', 300), channel: 'Zed' },
+        { ...video('b', 100), channel: 'alpha' },
+        { ...video('c', null), channel: 'Beta' },
+        { ...video('d', 200), channel: '' },
+        { ...video('e', 50), channel: 'Alpha' },
+        { ...video('f', null), channel: 'beta' },
+      ],
+      settings(),
+      'end',
+      fakeClock()
+    );
+    return { ...q, currentId: current === null ? null : q.entries[current].id };
+  };
+
+  it('shortest first moves only the entries after the current one, unknown lengths last', () => {
+    const q = sortUpcoming(sample(1), 'shortest');
+    expect(ids(q)).toEqual(['a', 'b', 'e', 'd', 'c', 'f']);
+    expect(currentEntry(q)?.videoId).toBe('b');
+  });
+
+  it('longest first, unknown lengths still last', () => {
+    expect(ids(sortUpcoming(sample(1), 'longest'))).toEqual(['a', 'b', 'd', 'e', 'c', 'f']);
+  });
+
+  it('by channel groups channels regardless of case, keeping their order, no channel last', () => {
+    expect(ids(sortUpcoming(sample(0), 'channel'))).toEqual(['a', 'b', 'e', 'c', 'f', 'd']);
+  });
+
+  it('with no current entry, rearranges the whole queue', () => {
+    expect(ids(sortUpcoming(sample(null), 'shortest'))).toEqual(['e', 'b', 'd', 'a', 'c', 'f']);
+  });
+
+  it('returns the same queue when the order would not change', () => {
+    const q = sortUpcoming(sample(1), 'shortest');
+    expect(sortUpcoming(q, 'shortest')).toBe(q);
+  });
+
+  it('shuffles only the entries after the current one, with a seeded random source', () => {
+    let seed = 7;
+    const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+    const q = shuffleUpcoming(sample(1), random);
+    expect(ids(q).slice(0, 2)).toEqual(['a', 'b']);
+    expect([...ids(q).slice(2)].sort()).toEqual(['c', 'd', 'e', 'f']);
+    expect(ids(q)).not.toEqual(ids(sample(1)));
+    // The same seed gives the same order.
+    seed = 7;
+    expect(ids(shuffleUpcoming(sample(1), random))).toEqual(ids(q));
+  });
+
+  it('can be undone with the Undo snapshot', () => {
+    const before = sample(2);
+    const after = sortUpcoming(before, 'longest');
+    expect(restore(after, { ...before, currentAfter: after.currentId })).toEqual(before);
   });
 });

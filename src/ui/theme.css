@@ -354,6 +354,15 @@ button:disabled {
   border-radius: 12px;
   background: var(--menu);
   box-shadow: var(--menu-shadow);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+.menu-heading {
+  padding: 8px 16px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--text-2);
 }
 .menu-item {
   display: flex;

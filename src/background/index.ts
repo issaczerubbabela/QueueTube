@@ -88,12 +88,13 @@ async function add(videoIds: string[], at: Q.Position = 'end', starts?: Record<s
   return { added: (await loadQueue()).entries.length - before };
 }
 
-/** Applies an operation that removes entries, keeping what Undo needs to bring them back. */
+/** Applies an operation that removes or rearranges entries, keeping what Undo needs to put them back. */
 async function undoable(op: Parameters<typeof apply>[0]): Promise<void> {
   const { entries, currentId, stopAfterId } = await loadQueue();
   await apply(op);
   const after = await loadQueue();
-  if (entries.length > 0 && after.entries.length < entries.length) await saveUndo({ entries, currentId, stopAfterId, currentAfter: after.currentId });
+  const changed = after.entries.length !== entries.length || after.entries.some((e, i) => e.id !== entries[i].id);
+  if (entries.length > 0 && changed) await saveUndo({ entries, currentId, stopAfterId, currentAfter: after.currentId });
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
@@ -265,6 +266,10 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     }
     case 'queue/move':
       return apply((q) => Q.move(q, command.entryId, command.toIndex));
+    case 'queue/sort':
+      return undoable((q) => Q.sortUpcoming(q, command.order));
+    case 'queue/shuffle':
+      return undoable((q) => Q.shuffleUpcoming(q));
     case 'queue/stopPoint':
       return apply((q) => Q.setStopPoint(q, command.entryId));
     case 'queue/playNextInLine':

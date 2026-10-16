@@ -15,6 +15,10 @@ import {
   Upload,
   Download,
   ListChecks,
+  ArrowDownNarrowWide,
+  ArrowDownWideNarrow,
+  Users,
+  Shuffle,
 } from 'lucide-react';
 import browser from 'webextension-polyfill';
 import { whatsNewVersion } from '../domain/changelog';
@@ -45,6 +49,11 @@ export function Sidebar() {
   const index = Q.currentIndex(queue);
   const next = Q.nextEntry(queue, Q.skipped(settings, watched));
   const watchedCount = queue.entries.filter((e) => watched.has(e.videoId)).length;
+  const canRearrange = Q.upcoming(queue).length > 1;
+  const rearrange = async (command: Parameters<typeof send>[0], message: string) => {
+    await send(command);
+    withUndo(message);
+  };
   const total = queue.entries.length;
   const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
   const whatsNew = whatsNewVersion(lastSeenVersion, browser.runtime.getManifest().version);
@@ -211,6 +220,32 @@ export function Sidebar() {
               icon: <ListPlus />,
               disabled: total === 0,
               onSelect: () => send({ type: 'tabs/openFree', url: playlistUrl(queue.entries.map((e) => e.videoId)) }),
+            },
+            'separator',
+            { heading: "Rearrange what's next" },
+            {
+              label: 'Shortest first',
+              icon: <ArrowDownNarrowWide />,
+              disabled: !canRearrange,
+              onSelect: () => rearrange({ type: 'queue/sort', order: 'shortest' }, 'Sorted shortest first'),
+            },
+            {
+              label: 'Longest first',
+              icon: <ArrowDownWideNarrow />,
+              disabled: !canRearrange,
+              onSelect: () => rearrange({ type: 'queue/sort', order: 'longest' }, 'Sorted longest first'),
+            },
+            {
+              label: 'By channel',
+              icon: <Users />,
+              disabled: !canRearrange,
+              onSelect: () => rearrange({ type: 'queue/sort', order: 'channel' }, 'Sorted by channel'),
+            },
+            {
+              label: 'Shuffle',
+              icon: <Shuffle />,
+              disabled: !canRearrange,
+              onSelect: () => rearrange({ type: 'queue/shuffle' }, 'Shuffled'),
             },
             'separator',
             {

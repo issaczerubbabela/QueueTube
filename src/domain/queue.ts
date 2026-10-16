@@ -232,6 +232,49 @@ export function advance(queue: Queue, settings: Settings, clock: Clock = systemC
   return { queue: keepStop({ ...queue, entries, history, currentId: next.id }), play: next.videoId };
 }
 
+// ── Sort and shuffle ─────────────────────────────────────────────────────────
+
+export type SortOrder = 'shortest' | 'longest' | 'channel';
+
+/** Replaces the entries after the current one (all of them, with nothing current). */
+function rearrangeUpcoming(queue: Queue, rearrange: (entries: Entry[]) => Entry[]): Queue {
+  const start = currentIndex(queue) + 1;
+  const rest = rearrange(queue.entries.slice(start));
+  if (rest.every((e, i) => e === queue.entries[start + i])) return queue;
+  return { ...queue, entries: [...queue.entries.slice(0, start), ...rest] };
+}
+
+const byLength = (direction: 1 | -1) => (a: Entry, b: Entry) => {
+  // Unknown lengths go last either way.
+  if (a.durationSec === null || b.durationSec === null) return (a.durationSec === null ? 1 : 0) - (b.durationSec === null ? 1 : 0);
+  return (a.durationSec - b.durationSec) * direction;
+};
+const byChannel = (a: Entry, b: Entry) => {
+  if (!a.channel || !b.channel) return (a.channel ? 0 : 1) - (b.channel ? 0 : 1);
+  return a.channel.localeCompare(b.channel, undefined, { sensitivity: 'base' });
+};
+
+/**
+ * Sorts the entries still to come: shortest or longest first, or grouped by channel. The current
+ * entry and those before it stay put; ties keep their order.
+ */
+export function sortUpcoming(queue: Queue, order: SortOrder): Queue {
+  const compare = order === 'shortest' ? byLength(1) : order === 'longest' ? byLength(-1) : byChannel;
+  return rearrangeUpcoming(queue, (rest) => [...rest].sort(compare));
+}
+
+/** Shuffles the entries still to come. `random` returns a number in [0, 1), like Math.random. */
+export function shuffleUpcoming(queue: Queue, random: () => number = Math.random): Queue {
+  return rearrangeUpcoming(queue, (rest) => {
+    const shuffled = [...rest];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  });
+}
+
 // ── Stop point ───────────────────────────────────────────────────────────────
 
 /** Sets the Stop point to an entry, replacing any other, or clears it with null. */

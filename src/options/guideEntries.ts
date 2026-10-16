@@ -129,6 +129,10 @@ export const GUIDE: GuideGroup[] = [
         text: "Choose Play next, Move to top or Move to bottom in a video's ⋮ menu.",
       },
       {
+        title: 'Sort and shuffle',
+        text: "Choose Shortest first, Longest first, By channel or Shuffle in the panel's ⋮ menu to rearrange the videos after the one playing. Undo puts your order back.",
+      },
+      {
         title: 'Remove',
         text: "Choose Remove from queue in a video's ⋮ menu, or select it and press Delete. Clear queue in the panel's ⋮ menu removes everything.",
       },
