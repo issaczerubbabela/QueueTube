@@ -7,6 +7,7 @@ import { parseVideoId } from '../domain/youtube';
 import type { RoleQuery, TabMessage } from '../shared/messages';
 import { send } from '../shared/messages';
 import { Sidebar } from '../sidebar/Sidebar';
+import { listenForAltClicks } from './altClick';
 import sidebarCss from '../sidebar/sidebar.css?inline';
 
 const HOST_ID = 'queuetube-host';
@@ -120,6 +121,9 @@ document.addEventListener(
 );
 
 window.addEventListener('yt-navigate-finish', schedulePlacement);
+
+// Every YouTube tab, not just the player: Alt+click a video link to queue it.
+listenForAltClicks(HOST_ID);
 
 // ── Wiring ──────────────────────────────────────────────────────────────────
 

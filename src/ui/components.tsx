@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import type { Video } from '../domain/queue';
 import { formatDuration, thumbnailUrl } from '../domain/youtube';
 
+/** Shown wherever the queue is empty: the two quickest ways to add a video. */
+export const EMPTY_QUEUE_HINT = 'Middle-click or Alt+click any video to queue it.';
+
 export function Thumb({ video, width }: { video: Video; width: number }) {
   const duration = formatDuration(video.durationSec);
   return (

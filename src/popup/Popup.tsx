@@ -17,7 +17,7 @@ import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
 import { OptionsSection, Status, send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
-import { Thumb, Title } from '../ui/components';
+import { EMPTY_QUEUE_HINT, Thumb, Title } from '../ui/components';
 import { formatShortcut } from '../ui/shortcut';
 import { formatRemaining, pluralVideos } from '../ui/transfer';
 
@@ -109,11 +109,12 @@ export function Popup() {
               {nowVideo.channel && <span className="video-channel">{nowVideo.channel}</span>}
             </span>
           </button>
+        ) : !hasPlayer ? (
+          <p className="placeholder">No player tab yet. The YouTube tab you open becomes the player.</p>
         ) : (
-          <p className="placeholder">
-            {hasPlayer ? 'The player is ready. Pick something from the queue to start.' : 'No player tab yet. The YouTube tab you open becomes the player.'}
-          </p>
+          total > 0 && <p className="placeholder">The player is ready. Pick something from the queue to start.</p>
         )}
+        {total === 0 && <p className="placeholder">{EMPTY_QUEUE_HINT}</p>}
       </section>
 
       {upcoming.length > 0 && (

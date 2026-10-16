@@ -8,6 +8,8 @@ What changed in each version of Cue, newest first. This file is shown in Cue's s
 
 - A **Guide** at the top of settings shows everything Cue can do and how, grouped by task, with your current keyboard shortcuts and links to the matching settings. It opens when you first install Cue, and the panel's ⋮ menu and the popup link to it.
 - **What's new** in settings lists the changes in each version. After an update, the popup and the panel's ⋮ menu say so until you've had a look.
+- **Alt+click** a video anywhere on YouTube to add it to the queue without opening it, or **Alt+Shift+click** to play it next. That includes the suggestions next to the video you're watching. A "Queued" label confirms it.
+- An empty queue now tells you how to fill it: *Middle-click or Alt+click any video to queue it.*
 - **Right-click** a YouTube video link on any site to **Add to queue** or **Play next**. Right-click a page or a selection and choose **Queue all YouTube links here** to queue every video it links to or mentions.
 
 ## 1.1.1

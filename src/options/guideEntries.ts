@@ -35,6 +35,10 @@ export const GUIDE: GuideGroup[] = [
         text: 'Middle-click a YouTube video link, on YouTube or any other site, to queue it without leaving what you are watching.',
       },
       {
+        title: 'Alt+click',
+        text: 'On YouTube, Alt+click a video to add it to the end of the queue without opening it, or Alt+Shift+click to play it next. It works in the player tab too, on the suggestions next to the video.',
+      },
+      {
         title: 'Right-click a link',
         text: 'Right-click a YouTube video link on any site and choose Add to queue, or Play next to put it right after the video that is playing.',
       },

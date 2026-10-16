@@ -21,7 +21,7 @@ import * as Q from '../domain/queue';
 import { playlistUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
-import { Menu, Title, Toast, useMenu, useToast } from '../ui/components';
+import { EMPTY_QUEUE_HINT, Menu, Title, Toast, useMenu, useToast } from '../ui/components';
 import { tintStyle, useTint } from '../ui/tint';
 import { exportQueue, formatRemaining, importQueue, pluralVideos } from '../ui/transfer';
 import { HistoryList } from './HistoryList';
@@ -136,7 +136,7 @@ export function Sidebar() {
             <div className="empty">
               <ListVideo className="empty-icon" aria-hidden="true" />
               <p className="empty-title">Nothing queued yet</p>
-              <p className="empty-text">Open videos in new tabs and they'll line up here, or pull in the YouTube tabs you already have open.</p>
+              <p className="empty-text">{EMPTY_QUEUE_HINT}</p>
               <button className="btn" onClick={gather}>
                 <Layers aria-hidden="true" /> Gather open tabs
               </button>
