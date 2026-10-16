@@ -1,9 +1,17 @@
 // Persisted state layout and a read-only React view of it for UI surfaces.
 import { useEffect, useState } from 'react';
 import browser from 'webextension-polyfill';
+import type { Progress, ProgressMap } from '../domain/progress';
 import { DEFAULT_SETTINGS, EMPTY_QUEUE, Queue, Settings } from '../domain/queue';
 
-export const KEYS = { queue: 'queue', settings: 'settings', undo: 'undo', lastSeenVersion: 'lastSeenVersion' } as const;
+export const KEYS = {
+  queue: 'queue',
+  settings: 'settings',
+  undo: 'undo',
+  lastSeenVersion: 'lastSeenVersion',
+  /** Watch progress, kept apart from the queue so frequent position writes don't re-render it. */
+  progress: 'progress',
+} as const;
 
 export function readQueue(raw: unknown): Queue {
   const q = (raw ?? {}) as Partial<Queue>;
@@ -21,6 +29,20 @@ export function readSettings(raw: unknown): Settings {
 
 export function readLastSeenVersion(raw: unknown): string | null {
   return typeof raw === 'string' ? raw : null;
+}
+
+const isProgress = (p: unknown): p is Progress =>
+  typeof p === 'object' && p !== null && typeof (p as Progress).position === 'number' && typeof (p as Progress).updatedAt === 'number';
+
+/** Watch progress by video id; anything malformed (or missing, before 1.3) is dropped. */
+export function readProgress(raw: unknown): ProgressMap {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
+  const map: ProgressMap = {};
+  for (const [videoId, p] of Object.entries(raw)) {
+    if (!isProgress(p)) continue;
+    map[videoId] = { position: p.position, duration: typeof p.duration === 'number' ? p.duration : null, watched: p.watched === true, updatedAt: p.updatedAt };
+  }
+  return map;
 }
 
 export interface ExtensionState {
@@ -53,7 +75,8 @@ export function useExtensionState(): ExtensionState {
     });
 
     const onChanged = (changes: Record<string, browser.Storage.StorageChange>, area: string) => {
-      if (area !== 'local') return;
+      // Watch progress changes every few seconds; it has its own hook so the queue doesn't re-render.
+      if (area !== 'local' || !(KEYS.queue in changes || KEYS.settings in changes || KEYS.lastSeenVersion in changes)) return;
       setState((prev) => ({
         ready: true,
         queue: KEYS.queue in changes ? readQueue(changes[KEYS.queue].newValue) : prev.queue,

@@ -1,18 +1,18 @@
 // Alt+click a video link on any YouTube page to queue it (Alt+Shift+click: Play next) instead of
 // opening it. Only the link's address is looked at, never YouTube's markup, so redesigns don't
 // break it.
-import { parseVideoId } from '../domain/youtube';
+import { VideoLink, parseVideoLink, startTimes } from '../domain/youtube';
 import { send } from '../shared/messages';
 
 const CONFIRM_MS = 1400;
 
-function linkedVideo(event: MouseEvent, ignoreId: string): { link: Element; videoId: string } | null {
+function linkedVideo(event: MouseEvent, ignoreId: string): { link: Element; video: VideoLink } | null {
   for (const target of event.composedPath()) {
     if (!(target instanceof Element)) continue;
     if (target.id === ignoreId) return null; // Cue's own panel
     if (target instanceof HTMLAnchorElement && target.href) {
-      const videoId = parseVideoId(target.href);
-      return videoId ? { link: target, videoId } : null;
+      const video = parseVideoLink(target.href);
+      return video ? { link: target, video } : null;
     }
   }
   return null;
@@ -68,7 +68,7 @@ export function listenForAltClicks(panelId: string): void {
       event.preventDefault();
       event.stopImmediatePropagation();
       const at = event.shiftKey ? 'next' : 'end';
-      send({ type: 'queue/add', videoIds: [found.videoId], at })
+      send({ type: 'queue/add', videoIds: [found.video.videoId], at, starts: startTimes([found.video]) })
         .then(({ added }) => confirm(found.link, added === 0 ? 'Already queued' : at === 'next' ? 'Queued to play next' : 'Queued'))
         .catch(() => confirm(found.link, 'Could not queue. Reload the page.'));
     },

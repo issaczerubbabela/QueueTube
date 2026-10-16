@@ -22,8 +22,25 @@ export function isYouTubeSite(url: string | undefined): boolean {
   return parsed !== null && SITE_HOSTS.has(parsed.hostname);
 }
 
-/** The video a main-site watch, shorts or live page (or a youtu.be link) points at. */
-export function parseVideoId(url: string | undefined): string | null {
+/** A link to a video, with the time it asks to start at (`t=1m30s`), if any. */
+export interface VideoLink {
+  videoId: string;
+  /** Seconds, or null when the link doesn't name a start time. */
+  start: number | null;
+}
+
+/** Reads a start time in YouTube's forms: `90`, `90s`, `1m30s`, `1h2m3s`. */
+export function parseStartTime(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const match = value.trim().match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/i);
+  if (!match || match[0] === '') return null;
+  const [, h, m, s] = match;
+  const seconds = Number(h ?? 0) * 3600 + Number(m ?? 0) * 60 + Number(s ?? 0);
+  return seconds > 0 ? seconds : null;
+}
+
+/** The video a main-site watch, shorts or live page (or a youtu.be link) points at, and its start time. */
+export function parseVideoLink(url: string | undefined): VideoLink | null {
   const parsed = parse(url);
   if (!parsed) return null;
 
@@ -38,17 +55,37 @@ export function parseVideoId(url: string | undefined): string | null {
       candidate = match ? match[1] : null;
     }
   }
-  return candidate && VIDEO_ID.test(candidate) ? candidate : null;
+  if (!candidate || !VIDEO_ID.test(candidate)) return null;
+  const hash = new URLSearchParams(parsed.hash.slice(1));
+  const start = parseStartTime(parsed.searchParams.get('t') ?? parsed.searchParams.get('start') ?? hash.get('t'));
+  return { videoId: candidate, start };
+}
+
+/** The video a main-site watch, shorts or live page (or a youtu.be link) points at. */
+export function parseVideoId(url: string | undefined): string | null {
+  return parseVideoLink(url)?.videoId ?? null;
+}
+
+/** Every distinct video linked in free text, in order of first appearance, with its start time. */
+export function findVideoLinks(text: string): VideoLink[] {
+  const urls =
+    text.match(/(?<![\w.-])(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com|youtu\.be)\/[^\s<>"']+/gi) ?? [];
+  const links = new Map<string, VideoLink>();
+  for (const url of urls) {
+    const link = parseVideoLink(/^https?:/i.test(url) ? url : `https://${url}`);
+    if (link && !links.has(link.videoId)) links.set(link.videoId, link);
+  }
+  return [...links.values()];
 }
 
 /** Every distinct video id mentioned in free text, in order of first appearance. */
 export function findVideoIds(text: string): string[] {
-  const urls =
-    text.match(/(?<![\w.-])(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com|youtu\.be)\/[^\s<>"']+/gi) ?? [];
-  const ids = urls
-    .map((url) => parseVideoId(/^https?:/i.test(url) ? url : `https://${url}`))
-    .filter((id): id is string => id !== null);
-  return [...new Set(ids)];
+  return findVideoLinks(text).map((link) => link.videoId);
+}
+
+/** The start times links ask for, by video id, as `queue/add` takes them. */
+export function startTimes(links: VideoLink[]): Record<string, number> {
+  return Object.fromEntries(links.filter((l) => l.start !== null).map((l) => [l.videoId, l.start!]));
 }
 
 /** Browser new-tab pages: a tab showing one has not "landed" anywhere yet. */
@@ -56,7 +93,8 @@ export function isNewTabPage(url: string | undefined): boolean {
   return !url || NEW_TAB_URLS.test(url);
 }
 
-export const watchUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`;
+export const watchUrl = (videoId: string, startSec: number | null = null) =>
+  `https://www.youtube.com/watch?v=${videoId}${startSec ? `&t=${Math.floor(startSec)}s` : ''}`;
 export const thumbnailUrl = (videoId: string) => `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
 export const playlistUrl = (videoIds: string[]) =>
   `https://www.youtube.com/watch_videos?video_ids=${videoIds.slice(0, 50).join(',')}`;

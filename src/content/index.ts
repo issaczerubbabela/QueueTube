@@ -8,6 +8,7 @@ import type { RoleQuery, TabMessage } from '../shared/messages';
 import { send } from '../shared/messages';
 import { Sidebar } from '../sidebar/Sidebar';
 import { listenForAltClicks } from './altClick';
+import { reportWatchProgress } from './watchProgress';
 import sidebarCss from '../sidebar/sidebar.css?inline';
 
 const HOST_ID = 'queuetube-host';
@@ -99,8 +100,10 @@ const adShowing = () => document.querySelector('#movie_player.ad-showing') !== n
 document.addEventListener(
   'ended',
   (event) => {
-    if (!isPlayer || !playerVideo(event.target) || adShowing()) return;
-    send({ type: 'player/ended', videoId: parseVideoId(location.href) }).catch(() => {});
+    const video = playerVideo(event.target);
+    if (!isPlayer || !video || adShowing()) return;
+    const durationSec = Number.isFinite(video.duration) ? Math.round(video.duration) : null;
+    send({ type: 'player/ended', videoId: parseVideoId(location.href), durationSec }).catch(() => {});
   },
   true
 );
@@ -121,6 +124,8 @@ document.addEventListener(
 );
 
 window.addEventListener('yt-navigate-finish', schedulePlacement);
+
+reportWatchProgress(() => isPlayer);
 
 // Every YouTube tab, not just the player: Alt+click a video link to queue it.
 listenForAltClicks(HOST_ID);

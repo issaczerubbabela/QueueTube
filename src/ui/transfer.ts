@@ -1,6 +1,6 @@
 // Moving queues in and out of Cue as plain text: one "title<TAB>url" line per entry.
 import type { Entry, Position } from '../domain/queue';
-import { findVideoIds, watchUrl } from '../domain/youtube';
+import { findVideoLinks, startTimes, watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
 
 export function exportQueue(entries: Entry[]): void {
@@ -18,9 +18,9 @@ export function exportQueue(entries: Entry[]): void {
 
 /** Queues every YouTube video linked in a text file. Resolves to a short result message. */
 export async function importQueue(file: File): Promise<string> {
-  const videoIds = findVideoIds(await file.text());
-  if (videoIds.length === 0) return 'No YouTube links found in that file';
-  const { added } = await send({ type: 'queue/add', videoIds });
+  const links = findVideoLinks(await file.text());
+  if (links.length === 0) return 'No YouTube links found in that file';
+  const { added } = await send({ type: 'queue/add', videoIds: links.map((l) => l.videoId), starts: startTimes(links) });
   if (added === 0) return 'Those videos are already queued';
   return `Added ${added} ${added === 1 ? 'video' : 'videos'}`;
 }
@@ -34,10 +34,11 @@ export const mayHoldLinks = (data: DataTransfer) => data.types.includes('text/ur
  * browser empties it once the drop event is over.
  */
 export async function dropVideos(data: DataTransfer, at: Position): Promise<string | null> {
-  const videoIds = findVideoIds(`${data.getData('text/uri-list')}
+  const links = findVideoLinks(`${data.getData('text/uri-list')}
 ${data.getData('text/plain')}`);
-  if (videoIds.length === 0) return null;
-  const { added } = await send({ type: 'queue/add', videoIds, at });
+  if (links.length === 0) return null;
+  const videoIds = links.map((l) => l.videoId);
+  const { added } = await send({ type: 'queue/add', videoIds, at, starts: startTimes(links) });
   return added > 0 ? null : videoIds.length === 1 ? 'That video is already queued' : 'Those videos are already queued';
 }
 

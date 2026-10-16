@@ -87,15 +87,18 @@ export async function focusPlayer(book: TabBook): Promise<void> {
   if (tab.id !== undefined) await setPlayer(book, tab.id, true);
 }
 
-/** Loads a video in the player tab, opening a new player tab if there is none. */
-export async function loadVideo(book: TabBook, videoId: string): Promise<void> {
+/**
+ * Loads a video in the player tab, opening a new player tab if there is none. `startSec` (its
+ * Watch progress) is passed to YouTube as `t=`. A video already on screen is left playing.
+ */
+export async function loadVideo(book: TabBook, videoId: string, startSec: number | null = null): Promise<void> {
   const playerId = await currentPlayer(book);
   if (playerId === null) {
-    const tab = await browser.tabs.create({ url: watchUrl(videoId), active: true });
+    const tab = await browser.tabs.create({ url: watchUrl(videoId, startSec), active: true });
     if (tab.id !== undefined) await setPlayer(book, tab.id, true);
     return;
   }
   const tab = await getTab(playerId);
   if (parseVideoId(tab?.url) === videoId) return;
-  await browser.tabs.update(playerId, { url: watchUrl(videoId) });
+  await browser.tabs.update(playerId, { url: watchUrl(videoId, startSec) });
 }

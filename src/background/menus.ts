@@ -2,7 +2,7 @@
 // selection links to or mentions.
 import browser from 'webextension-polyfill';
 import type { Position } from '../domain/queue';
-import { findVideoIds, parseVideoId } from '../domain/youtube';
+import { VideoLink, findVideoLinks, parseVideoLink, startTimes } from '../domain/youtube';
 
 const VIDEO_LINKS = ['www.youtube.com', 'youtube.com', 'm.youtube.com']
   .flatMap((host) => [`*://${host}/watch*`, `*://${host}/shorts/*`, `*://${host}/live/*`])
@@ -46,7 +46,7 @@ function pageText(): string {
   return parts.join(' ');
 }
 
-async function videosOnPage(tabId: number | undefined, info: browser.Menus.OnClickData): Promise<string[]> {
+async function videosOnPage(tabId: number | undefined, info: browser.Menus.OnClickData): Promise<VideoLink[]> {
   let text = info.selectionText ?? '';
   if (tabId !== undefined) {
     try {
@@ -56,19 +56,21 @@ async function videosOnPage(tabId: number | undefined, info: browser.Menus.OnCli
       // Pages extensions can't script (browser pages, the web store): fall back to the selected text.
     }
   }
-  return findVideoIds(text);
+  return findVideoLinks(text);
 }
 
-/** Calls `add` with the videos a menu item was used on. */
-export function onMenuClick(add: (videoIds: string[], at: Position) => Promise<unknown>): void {
+type Add = (videoIds: string[], at: Position, starts: Record<string, number>) => Promise<unknown>;
+
+/** Calls `add` with the videos a menu item was used on, and the start times their links ask for. */
+export function onMenuClick(add: Add): void {
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === QUEUE_ALL) {
-      const videoIds = await videosOnPage(tab?.id, info);
-      if (videoIds.length > 0) await add(videoIds, 'end');
+      const links = await videosOnPage(tab?.id, info);
+      if (links.length > 0) await add(links.map((l) => l.videoId), 'end', startTimes(links));
       return;
     }
     const item = LINK_ITEMS.find((i) => i.id === info.menuItemId);
-    const videoId = parseVideoId(info.linkUrl);
-    if (item && videoId) await add([videoId], item.at);
+    const link = parseVideoLink(info.linkUrl);
+    if (item && link) await add([link.videoId], item.at, startTimes([link]));
   });
 }

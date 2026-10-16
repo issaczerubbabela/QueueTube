@@ -1,7 +1,8 @@
 // Background worker: routes tab events and UI commands into the queue model.
 import browser from 'webextension-polyfill';
+import * as P from '../domain/progress';
 import * as Q from '../domain/queue';
-import { fetchDuration, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, watchUrl } from '../domain/youtube';
+import { fetchDuration, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, parseVideoLink, startTimes } from '../domain/youtube';
 import type { Command, OptionsSection, RoleQuery, Status } from '../shared/messages';
 import { createMenus, onMenuClick } from './menus';
 import { currentPlayer, electPlayer, focusPlayer, focusTab, loadVideo, setPlayer } from './player';
@@ -9,12 +10,14 @@ import {
   TabBook,
   forgetTab,
   loadBook,
+  loadProgress,
   loadQueue,
   loadSettings,
   loadUndo,
   migrateLegacyState,
   saveBook,
   saveLastSeenVersion,
+  saveProgress,
   saveQueue,
   saveSettings,
   saveUndo,
@@ -26,6 +29,11 @@ const STARTUP_GRACE_MS = 8000;
 
 const blankVideo = (videoId: string): Q.Video => ({ videoId, title: '', channel: '', durationSec: null });
 
+/** Loads a video in the player tab, resuming from its Watch progress. */
+async function play(videoId: string): Promise<void> {
+  await loadVideo(await loadBook(), videoId, P.resumeAt(await loadProgress(), videoId));
+}
+
 /**
  * Applies a queue operation and loads whatever video it asks for. Call only inside `serial`.
  */
@@ -34,7 +42,14 @@ async function apply(op: (queue: Q.Queue, settings: Q.Settings) => Q.Step | Q.Qu
   const result = op(queue, settings);
   const step: Q.Step = 'play' in result ? result : { queue: result, play: null };
   if (step.queue !== queue) await saveQueue(step.queue);
-  if (step.play) await loadVideo(await loadBook(), step.play);
+  if (step.play) await play(step.play);
+}
+
+/** Applies a Watch progress change. Call only inside `serial`. */
+async function applyProgress(op: (progress: P.ProgressMap) => P.ProgressMap): Promise<void> {
+  const progress = await loadProgress();
+  const next = op(progress);
+  if (next !== progress) await saveProgress(next);
 }
 
 /**
@@ -60,9 +75,13 @@ function describeLater(videoIds: string[]): void {
   for (let i = 0; i < 3; i++) worker();
 }
 
-/** Adds videos to the queue (end, Play next or an index) and fetches their details. */
-async function add(videoIds: string[], at: Q.Position = 'end'): Promise<{ added: number }> {
+/**
+ * Adds videos to the queue (end, Play next or an index) and fetches their details. Start times
+ * from their links (`t=`) replace saved Watch progress, whether or not the video was added.
+ */
+async function add(videoIds: string[], at: Q.Position = 'end', starts?: Record<string, number>): Promise<{ added: number }> {
   const before = (await loadQueue()).entries.length;
+  await applyProgress((p) => P.setStarts(p, starts));
   await apply((q, s) => Q.enqueue(q, videoIds.map(blankVideo), s, at));
   describeLater(videoIds);
   return { added: (await loadQueue()).entries.length - before };
@@ -95,6 +114,8 @@ async function autoQueue(book: TabBook, tab: browser.Tabs.Tab, videoId: string):
   const settings = await loadSettings();
   if (!settings.autoQueue) return;
 
+  const start = parseVideoLink(tab.url)?.start;
+  if (start) await applyProgress((p) => P.setStart(p, videoId, start));
   await apply((q, s) => Q.enqueue(q, [blankVideo(videoId)], s));
   await browser.tabs.remove(tabId).catch(() => {});
   // Only pull the user to the player if they opened the video in the foreground.
@@ -181,7 +202,9 @@ async function gather(): Promise<{ gathered: number }> {
     await becomePlayer(book, playerId, player.url);
   }
 
-  const videoIds = candidates.map((t) => parseVideoId(t.url)!);
+  const links = candidates.map((t) => parseVideoLink(t.url)!);
+  const videoIds = links.map((l) => l.videoId);
+  await applyProgress((p) => P.setStarts(p, startTimes(links)));
   await apply((q, s) => Q.enqueue(q, videoIds.map(blankVideo), s));
   await browser.tabs.remove(candidates.map((t) => t.id!)).catch(() => {});
   await focusTab(playerId).catch(() => {});
@@ -223,7 +246,7 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
       return gather();
 
     case 'queue/add':
-      return add(command.videoIds, command.at);
+      return add(command.videoIds, command.at, command.starts);
     case 'queue/remove':
       if (!(await loadQueue()).entries.some((e) => e.id === command.entryId)) return;
       await snapshotForUndo();
@@ -247,7 +270,7 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     case 'play/entry':
       return apply((q) => Q.jumpTo(q, command.entryId));
     case 'play/video':
-      return loadVideo(await loadBook(), command.videoId);
+      return play(command.videoId);
     case 'play/next':
       return apply((q, s) => Q.advance(q, s));
     case 'play/previous':
@@ -256,9 +279,16 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     case 'player/ended': {
       const book = await loadBook();
       if (sender.tab?.id !== book.playerTabId) return;
+      if (command.videoId) await applyProgress((p) => P.markWatched(p, command.videoId!, command.durationSec ?? null));
       const settings = await loadSettings();
       if (!settings.autoAdvance) return;
       return apply((q, s) => (q.nowPlaying === command.videoId ? Q.advance(q, s) : q));
+    }
+    case 'player/progress': {
+      const book = await loadBook();
+      if (sender.tab?.id !== book.playerTabId) return;
+      const { videoId, positionSec, durationSec } = command;
+      return applyProgress((p) => P.recordPosition(p, videoId, positionSec, durationSec));
     }
     case 'player/describe': {
       const { videoId, title, channel, durationSec } = command;
@@ -300,7 +330,7 @@ browser.runtime.onMessage.addListener((message: unknown, sender) => {
   return serial(() => handle(command, sender));
 });
 
-onMenuClick((videoIds, at) => serial(() => add(videoIds, at)));
+onMenuClick((videoIds, at, starts) => serial(() => add(videoIds, at, starts)));
 
 browser.commands?.onCommand.addListener((name) => {
   serial(async () => {

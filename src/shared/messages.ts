@@ -4,8 +4,11 @@ import browser from 'webextension-polyfill';
 import type { Position, Settings } from '../domain/queue';
 
 export type Command =
-  /** Adds videos at the end (the default), as Play next, or at an index. */
-  | { type: 'queue/add'; videoIds: string[]; at?: Position }
+  /**
+   * Adds videos at the end (the default), as Play next, or at an index. `starts` holds the start
+   * times their links asked for (`t=`), by video id; they replace saved Watch progress.
+   */
+  | { type: 'queue/add'; videoIds: string[]; at?: Position; starts?: Record<string, number> }
   | { type: 'queue/remove'; entryId: string }
   | { type: 'queue/move'; entryId: string; toIndex: number }
   | { type: 'queue/playNextInLine'; entryId: string }
@@ -16,7 +19,9 @@ export type Command =
   | { type: 'play/video'; videoId: string }
   | { type: 'play/next' }
   | { type: 'play/previous' }
-  | { type: 'player/ended'; videoId: string | null }
+  | { type: 'player/ended'; videoId: string | null; durationSec?: number | null }
+  /** The player tab is `positionSec` into `videoId`; sent every few seconds, on pause and on leaving. */
+  | { type: 'player/progress'; videoId: string; positionSec: number; durationSec: number | null }
   | { type: 'player/describe'; videoId: string; title: string; channel: string; durationSec: number | null }
   | { type: 'player/focus' }
   | { type: 'player/claimActiveTab' }

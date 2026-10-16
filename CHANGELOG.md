@@ -2,6 +2,10 @@
 
 What changed in each version of Cue, newest first. This file is shown in Cue's settings under **What's new**.
 
+## 1.3.0
+
+- **Pick up where you left off.** Cue remembers how far you got into each video and resumes from there whenever it plays it again, even after a browser restart. A link with a time in it (`t=1m30s`) starts at that time instead. Videos you've barely started, or have finished, start from the beginning.
+
 ## 1.2.0
 
 **QueueTube is now Cue** ("Cue for YouTube"). It's the same extension with a new name: your queue, History and settings are all still here, and there's nothing you need to do.

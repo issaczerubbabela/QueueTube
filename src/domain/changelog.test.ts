@@ -112,9 +112,8 @@ describe('CHANGELOG.md', () => {
   });
 
   it('opens 1.2.0 with the rename to Cue', () => {
-    const [first] = versions;
-    expect(first.version).toBe('1.2.0');
-    const text = JSON.stringify(first.blocks[0]);
+    const notes = versions.find((v) => v.version === '1.2.0')!;
+    const text = JSON.stringify(notes.blocks[0]);
     expect(text).toMatch(/QueueTube/);
     expect(text).toMatch(/Cue/);
   });

@@ -134,6 +134,10 @@ export const GUIDE: GuideGroup[] = [
     title: 'Picking up where you left off',
     entries: [
       {
+        title: 'Resume',
+        text: "Cue remembers how far you got into each video and carries on from there when it plays it again. Under 30 seconds in, or once you've watched it, it starts from the beginning. A link with a time in it, like t=1m30s, starts at that time.",
+      },
+      {
         title: 'Your queue is kept',
         text: 'The queue and your place in it are kept when you close the browser. Open YouTube again and carry on.',
       },

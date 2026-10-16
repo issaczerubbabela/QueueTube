@@ -1,8 +1,9 @@
 // Persistence for the background worker, the only writer of queue state (ADR 0001).
 // Every read-modify-write runs inside `serial`, so tab events and commands never interleave.
 import browser from 'webextension-polyfill';
+import type { ProgressMap } from '../domain/progress';
 import { DEFAULT_SETTINGS, Entry, Queue, Settings, upcoming } from '../domain/queue';
-import { KEYS, readQueue, readSettings } from '../shared/state';
+import { KEYS, readProgress, readQueue, readSettings } from '../shared/state';
 
 let tail: Promise<unknown> = Promise.resolve();
 
@@ -31,6 +32,15 @@ export async function saveQueue(queue: Queue): Promise<void> {
 
 export async function saveSettings(settings: Settings): Promise<void> {
   await browser.storage.local.set({ [KEYS.settings]: settings });
+}
+
+export async function loadProgress(): Promise<ProgressMap> {
+  const stored = await browser.storage.local.get(KEYS.progress);
+  return readProgress(stored[KEYS.progress]);
+}
+
+export async function saveProgress(progress: ProgressMap): Promise<void> {
+  await browser.storage.local.set({ [KEYS.progress]: progress });
 }
 
 export async function saveLastSeenVersion(version: string): Promise<void> {
