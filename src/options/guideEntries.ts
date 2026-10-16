@@ -39,6 +39,10 @@ export const GUIDE: GuideGroup[] = [
         text: 'On YouTube, Alt+click a video to add it to the end of the queue without opening it, or Alt+Shift+click to play it next. It works in the player tab too, on the suggestions next to the video.',
       },
       {
+        title: 'Drag onto the panel',
+        text: 'Drag a video from the YouTube page onto the queue panel and drop it where you want it to play. Dropping text with several YouTube links queues them all there.',
+      },
+      {
         title: 'Right-click a link',
         text: 'Right-click a YouTube video link on any site and choose Add to queue, or Play next to put it right after the video that is playing.',
       },

@@ -23,7 +23,7 @@ import { send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
 import { EMPTY_QUEUE_HINT, Menu, Title, Toast, useMenu, useToast } from '../ui/components';
 import { tintStyle, useTint } from '../ui/tint';
-import { exportQueue, formatRemaining, importQueue, pluralVideos } from '../ui/transfer';
+import { dropVideos, exportQueue, formatRemaining, importQueue, mayHoldLinks, pluralVideos } from '../ui/transfer';
 import { HistoryList } from './HistoryList';
 import { QueueList } from './QueueList';
 
@@ -32,6 +32,7 @@ type Tab = 'queue' | 'history';
 export function Sidebar() {
   const { ready, queue, settings, lastSeenVersion } = useExtensionState();
   const [tab, setTab] = useState<Tab>('queue');
+  const [dropping, setDropping] = useState(false);
   const menu = useMenu();
   const { toast, show, dismiss } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -133,7 +134,23 @@ export function Sidebar() {
       <div className="panel-body" role="tabpanel">
         {tab === 'queue' ? (
           total === 0 ? (
-            <div className="empty">
+            <div
+              className={`empty${dropping ? ' drop-target' : ''}`}
+              onDragOver={(e) => {
+                if (!mayHoldLinks(e.dataTransfer)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                setDropping(true);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropping(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDropping(false);
+                dropVideos(e.dataTransfer, 'end').then((message) => message && show({ message }));
+              }}
+            >
               <ListVideo className="empty-icon" aria-hidden="true" />
               <p className="empty-title">Nothing queued yet</p>
               <p className="empty-text">{EMPTY_QUEUE_HINT}</p>
@@ -145,6 +162,7 @@ export function Sidebar() {
             <QueueList
               queue={queue}
               onRemoved={(entry) => withUndo(`Removed “${entry.title || 'video'}”`)}
+              onDropMessage={(message) => show({ message })}
             />
           )
         ) : (

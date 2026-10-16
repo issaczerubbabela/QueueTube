@@ -1,5 +1,5 @@
 // Moving queues in and out of Cue as plain text: one "title<TAB>url" line per entry.
-import type { Entry } from '../domain/queue';
+import type { Entry, Position } from '../domain/queue';
 import { findVideoIds, watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
 
@@ -23,6 +23,22 @@ export async function importQueue(file: File): Promise<string> {
   const { added } = await send({ type: 'queue/add', videoIds });
   if (added === 0) return 'Those videos are already queued';
   return `Added ${added} ${added === 1 ? 'video' : 'videos'}`;
+}
+
+/** True while something that can hold links (not files) is dragged over a surface. */
+export const mayHoldLinks = (data: DataTransfer) => data.types.includes('text/uri-list') || data.types.includes('text/plain');
+
+/**
+ * Queues the YouTube videos in dropped links or text. Anything without a YouTube link does
+ * nothing. Resolves to a message to show, or null. Reads the data before awaiting, as the
+ * browser empties it once the drop event is over.
+ */
+export async function dropVideos(data: DataTransfer, at: Position): Promise<string | null> {
+  const videoIds = findVideoIds(`${data.getData('text/uri-list')}
+${data.getData('text/plain')}`);
+  if (videoIds.length === 0) return null;
+  const { added } = await send({ type: 'queue/add', videoIds, at });
+  return added > 0 ? null : videoIds.length === 1 ? 'That video is already queued' : 'Those videos are already queued';
 }
 
 export const pluralVideos = (n: number) => `${n} ${n === 1 ? 'video' : 'videos'}`;

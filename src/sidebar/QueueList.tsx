@@ -4,13 +4,22 @@ import * as Q from '../domain/queue';
 import { watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
 import { Menu, Thumb, Title, useMenu } from '../ui/components';
+import { dropVideos, mayHoldLinks } from '../ui/transfer';
 
 interface Props {
   queue: Q.Queue;
   onRemoved: (entry: Q.Entry) => void;
+  /** A message after links dropped from the page were not added (already queued). */
+  onDropMessage: (message: string) => void;
 }
 
 type Drop = { index: number; after: boolean };
+
+/** Where a drag over a row would drop: before it on its top half, after it on its bottom half. */
+function dropAt(e: React.DragEvent<HTMLElement>, index: number): Drop {
+  const rect = e.currentTarget.getBoundingClientRect();
+  return { index, after: e.clientY > rect.top + rect.height / 2 };
+}
 
 /** Index the dragged entry ends up at when dropped before/after the row at `drop.index`. */
 function targetIndex(from: number, drop: Drop): number {
@@ -18,7 +27,7 @@ function targetIndex(from: number, drop: Drop): number {
   return insertAt > from ? insertAt - 1 : insertAt;
 }
 
-export function QueueList({ queue, onRemoved }: Props) {
+export function QueueList({ queue, onRemoved, onDropMessage }: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
   // Optimistic order while a move is in flight, so a dropped row doesn't snap back for a frame.
@@ -126,8 +135,9 @@ export function QueueList({ queue, onRemoved }: Props) {
       }}>
         {entries.map((entry, index) => {
           const isCurrent = entry.id === queue.currentId;
+          // Rows dragged within the panel move; links dragged in from the page are added there.
           const dropClass =
-            drop && dragging !== null && drop.index === index && targetIndex(dragging, drop) !== dragging
+            drop && drop.index === index && (dragging === null || targetIndex(dragging, drop) !== dragging)
               ? drop.after
                 ? ' drop-after'
                 : ' drop-before'
@@ -147,16 +157,17 @@ export function QueueList({ queue, onRemoved }: Props) {
                 setDragging(index);
               }}
               onDragOver={(e) => {
-                if (dragging === null) return;
+                if (dragging === null && !mayHoldLinks(e.dataTransfer)) return;
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                const rect = e.currentTarget.getBoundingClientRect();
-                const after = e.clientY > rect.top + rect.height / 2;
-                if (drop?.index !== index || drop.after !== after) setDrop({ index, after });
+                e.dataTransfer.dropEffect = dragging === null ? 'copy' : 'move';
+                const at = dropAt(e, index);
+                if (drop?.index !== at.index || drop.after !== at.after) setDrop(at);
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                if (dragging !== null && drop) moveTo(entries[dragging], targetIndex(dragging, drop));
+                const at = dropAt(e, index);
+                if (dragging !== null) moveTo(entries[dragging], targetIndex(dragging, at));
+                else dropVideos(e.dataTransfer, at.index + (at.after ? 1 : 0)).then((message) => message && onDropMessage(message));
                 setDragging(null);
                 setDrop(null);
               }}

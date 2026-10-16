@@ -242,6 +242,12 @@
   padding: 24px 24px 20px;
   text-align: center;
 }
+/* A link dragged in from the page can be dropped anywhere on the empty state. */
+.empty.drop-target {
+  outline: 2px dashed var(--text-2);
+  outline-offset: -8px;
+  border-radius: 12px;
+}
 .empty-icon {
   width: 40px;
   height: 40px;
