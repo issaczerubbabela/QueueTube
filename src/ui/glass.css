@@ -1,0 +1,485 @@
+/* QueueTube design system: a liquid-glass material over compact, content-first layouts.
+   Tokens live on :root (extension pages) and :host (the panel inside YouTube's page).
+   Dark is the default; light comes from prefers-color-scheme or the host's data-theme. */
+
+:root,
+:host {
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+
+  --text: #f5f5f7;
+  --text-2: rgba(235, 235, 245, 0.66);
+  --text-3: rgba(235, 235, 245, 0.55);
+  --accent: #ff453a;
+  --accent-strong: #d70015;
+  --on-accent: #fff;
+  --focus: #64a8ff;
+
+  --glass: rgba(36, 36, 40, 0.58);
+  --glass-strong: rgba(44, 44, 48, 0.82);
+  --menu: rgba(40, 40, 44, 0.97);
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 42%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.65), 0 2px 6px -2px rgba(0, 0, 0, 0.35);
+  --blur: blur(24px) saturate(170%);
+
+  --fill: rgba(255, 255, 255, 0.07);
+  --fill-hover: rgba(255, 255, 255, 0.11);
+  --fill-press: rgba(255, 255, 255, 0.16);
+  --separator: rgba(255, 255, 255, 0.09);
+  --current: rgba(255, 69, 58, 0.14);
+  --scrim: rgba(0, 0, 0, 0.55);
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-pill: 999px;
+
+  --ease-out: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --t-fast: 120ms;
+  --t-med: 220ms;
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --text: #1d1d1f;
+    --text-2: rgba(60, 60, 67, 0.78);
+    --text-3: rgba(60, 60, 67, 0.64);
+    --accent: #e0241b;
+    --focus: #0a66d6;
+    --glass: rgba(255, 255, 255, 0.62);
+    --glass-strong: rgba(255, 255, 255, 0.86);
+    --menu: rgba(252, 252, 254, 0.97);
+    --glass-edge: rgba(0, 0, 0, 0.08);
+    --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 45%);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5);
+    --glass-shadow: 0 12px 32px -14px rgba(0, 0, 0, 0.28), 0 2px 6px -2px rgba(0, 0, 0, 0.08);
+    --fill: rgba(0, 0, 0, 0.045);
+    --fill-hover: rgba(0, 0, 0, 0.075);
+    --fill-press: rgba(0, 0, 0, 0.11);
+    --separator: rgba(0, 0, 0, 0.08);
+    --current: rgba(224, 36, 27, 0.09);
+    --scrim: rgba(255, 255, 255, 0.5);
+    color-scheme: light;
+  }
+}
+
+:host([data-theme='light']) {
+  --text: #0f0f0f;
+  --text-2: rgba(15, 15, 15, 0.66);
+  --text-3: rgba(15, 15, 15, 0.58);
+  --accent: #e0241b;
+  --focus: #0a66d6;
+  --glass: rgba(255, 255, 255, 0.66);
+  --glass-strong: rgba(255, 255, 255, 0.9);
+  --menu: rgba(255, 255, 255, 0.97);
+  --glass-edge: rgba(0, 0, 0, 0.08);
+  --glass-sheen: linear-gradient(160deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 45%);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 10px 28px -14px rgba(0, 0, 0, 0.25), 0 1px 4px -1px rgba(0, 0, 0, 0.08);
+  --fill: rgba(0, 0, 0, 0.045);
+  --fill-hover: rgba(0, 0, 0, 0.075);
+  --fill-press: rgba(0, 0, 0, 0.11);
+  --separator: rgba(0, 0, 0, 0.08);
+  --current: rgba(224, 36, 27, 0.08);
+  --scrim: rgba(255, 255, 255, 0.5);
+  color-scheme: light;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  :host {
+    --glass: var(--glass-strong);
+    --blur: none;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ── Material ─────────────────────────────────────────────────────────────── */
+
+.glass {
+  position: relative;
+  background: var(--glass-sheen), var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  color: var(--text);
+}
+
+/* Blurred artwork of what is playing, behind the glass ("ambient" lighting). */
+.ambient {
+  position: absolute;
+  inset: -40%;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(36px) saturate(1.7);
+  opacity: 0.45;
+  pointer-events: none;
+  transition: background-image var(--t-med) ease;
+}
+:host([data-theme='light']) .ambient {
+  opacity: 0.3;
+}
+@media (prefers-color-scheme: light) {
+  :root .ambient {
+    opacity: 0.3;
+  }
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────────── */
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button:disabled {
+  cursor: default;
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+  color: var(--text-2);
+  transition: background var(--t-fast) ease, color var(--t-fast) ease, transform var(--t-fast) var(--ease-out);
+}
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2;
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--fill-hover);
+  color: var(--text);
+}
+.icon-btn:active:not(:disabled) {
+  background: var(--fill-press);
+  transform: scale(0.92);
+}
+.icon-btn:disabled {
+  opacity: 0.35;
+}
+.icon-btn[aria-expanded='true'] {
+  background: var(--fill-press);
+  color: var(--text);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  background: var(--fill);
+  box-shadow: inset 0 0 0 0.5px var(--glass-edge), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: background var(--t-fast) ease, transform var(--t-fast) var(--ease-out), opacity var(--t-fast) ease;
+}
+.btn svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.2;
+}
+.btn:hover:not(:disabled) {
+  background: var(--fill-hover);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+  background: var(--fill-press);
+}
+.btn:disabled {
+  opacity: 0.4;
+}
+.btn.primary {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 60%), var(--accent-strong);
+  color: var(--on-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 4px 14px -6px rgba(215, 0, 21, 0.7);
+}
+.btn.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 60%), var(--accent-strong);
+}
+
+/* iOS-style switch built on a checkbox for free keyboard and screen-reader support. */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 26px;
+  margin: 0;
+  border-radius: var(--r-pill);
+  background: var(--fill-press);
+  cursor: pointer;
+  transition: background var(--t-med) ease;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  transition: transform var(--t-med) var(--spring);
+}
+.switch:checked {
+  background: #30d158;
+}
+.switch:checked::after {
+  transform: translateX(16px);
+}
+
+/* Segmented control */
+.segmented {
+  display: flex;
+  padding: 2px;
+  border-radius: var(--r-pill);
+  background: var(--fill);
+}
+.segmented button {
+  flex: 1;
+  height: 26px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: background var(--t-med) var(--ease-out), color var(--t-fast) ease, box-shadow var(--t-med) ease;
+}
+.segmented button[aria-selected='true'] {
+  color: var(--text);
+  background: var(--glass-strong);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18), inset 0 0 0 0.5px var(--glass-edge);
+}
+.segmented .count {
+  margin-left: 4px;
+  font-weight: 500;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Media ────────────────────────────────────────────────────────────────── */
+
+.thumb {
+  position: relative;
+  flex-shrink: 0;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--fill-press);
+}
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.thumb .duration {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 14px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Now-playing equalizer */
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 14px;
+  height: 12px;
+}
+.eq i {
+  flex: 1;
+  border-radius: 1px;
+  background: var(--accent);
+  animation: eq 0.9s ease-in-out infinite alternate;
+}
+.eq i:nth-child(2) {
+  animation-delay: -0.35s;
+}
+.eq i:nth-child(3) {
+  animation-delay: -0.6s;
+}
+@keyframes eq {
+  from {
+    height: 25%;
+  }
+  to {
+    height: 100%;
+  }
+}
+
+.skeleton {
+  display: inline-block;
+  height: 0.9em;
+  width: 70%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--fill) 0%, var(--fill-press) 50%, var(--fill) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  vertical-align: middle;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Menu & toast ─────────────────────────────────────────────────────────── */
+
+.menu {
+  position: fixed;
+  z-index: 2147483000;
+  min-width: 210px;
+  padding: 5px;
+  border-radius: 14px;
+  /* Menus float over arbitrary page content, so they stay nearly opaque to keep text legible. */
+  background: var(--glass-sheen), var(--menu);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-highlight), 0 18px 40px -12px rgba(0, 0, 0, 0.55);
+  transform-origin: top right;
+  animation: pop var(--t-med) var(--spring);
+}
+.menu[data-placement='above'] {
+  transform-origin: bottom right;
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text);
+}
+.menu-item svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  background: var(--fill-hover);
+  outline: none;
+}
+.menu-item:disabled {
+  opacity: 0.4;
+}
+.menu-item.danger,
+.menu-item.danger svg {
+  color: var(--accent);
+}
+.menu-sep {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--separator);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 14px;
+  min-height: 38px;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--glass-sheen), var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-highlight), 0 10px 26px -10px rgba(0, 0, 0, 0.5);
+  animation: rise var(--t-med) var(--spring);
+}
+.toast .msg {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toast .btn {
+  height: 26px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--accent);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .eq i {
+    height: 60%;
+  }
+}

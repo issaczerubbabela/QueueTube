@@ -50,3 +50,6 @@ ehthumbs.db
 desktop.ini
 
 QueueTube-extension.zip
+# Packaged builds
+builds/
+*.zip

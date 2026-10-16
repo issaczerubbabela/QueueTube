@@ -8,42 +8,26 @@ Instead of allowing dozens of YouTube tabs to accumulate across your browser, Qu
 
 ## ✨ Features
 
-- 🎯 **One Master Player**: Maintain exactly one active YouTube watch tab. Zero tab clutter!
-- ⚡ **Auto-Gathering**: Intercept newly opened YouTube links & automatically route them into your queue.
-- 📦 **Tab Consolidation**: Click **Gather Tabs** (`Ctrl+Shift+Q`) to collect all open YouTube tabs across windows into a single organized queue.
-- 🎨 **Native-Feeling UI**: Sleek, dark-mode React sidebar mounted directly in YouTube using Shadow DOM so it never breaks YouTube or leaks styles.
-- 🖐️ **Drag & Drop Reordering**: Reorder queued videos on the fly with live thumbnail and duration previews.
-- 🔁 **Auto Playback**: Plays the next video in your queue automatically when the current video ends.
-- 💾 **Persistent Queue**: Powered by `browser.storage.local` to restore your queue across browser restarts.
-- ⌨️ **Keyboard Shortcuts**:
-  - `Ctrl+Shift+Q`: Gather Tabs
-  - `Ctrl+Shift+N`: Play Next Video
-  - `Ctrl+Shift+P`: Play Previous Video
-  - `Ctrl+Shift+L`: Toggle Queue Sidebar
+- 🎯 **One player tab**: QueueTube plays everything in a single YouTube tab.
+- ⚡ **Auto-queue**: a YouTube video you open in a *new* tab joins the queue and the tab closes. Tabs you're already browsing in, YouTube Music, and YouTube Studio are never touched.
+- 📦 **Gather tabs**: sweep every open YouTube video tab into the queue at once.
+- 🧊 **Liquid-glass queue panel** inside YouTube's sidebar, following YouTube's light/dark theme, with now-playing artwork, durations, and time remaining.
+- 🖐️ **Reorder** by drag and drop, by keyboard (Alt+↑/↓), or with *Play next* / *Move to top*.
+- ↩️ **Undo** for removing a video or clearing the queue.
+- 🔁 **Auto-advance** to the next video when one ends (ads are ignored).
+- 🕘 **History** of what you moved past, with one-click replay.
+- 💾 **Import/export** the queue as a text file of links.
+- ⌨️ **Keyboard shortcuts** (change them in your browser's extension shortcut settings):
+  - `Alt+Shift+Q`: Gather tabs
+  - `Alt+Shift+.`: Play next
+  - `Alt+Shift+,`: Play previous
+  - `Alt+Shift+L`: Collapse or expand the panel
 
 ---
 
 ## 🛠️ Architecture
 
-```text
-Firefox / Zen / Chromium Browser
-│
-├── Background Service Worker (src/background/index.ts)
-│   ├── Tracks Master Player Tab ID
-│   ├── Intercepts new YouTube watch tabs & appends to queue
-│   ├── Handles "Gather Tabs" & keyboard shortcuts
-│   └── Manages storage state
-│
-├── Content Script (src/content/index.ts)
-│   ├── Mounts React QueueSidebar into Shadow DOM
-│   └── Listens to HTML5 <video> ended events & YouTube SPA navigation
-│
-├── Extension Popup (src/popup/Popup.tsx)
-│   └── Quick controls, player status, gather button
-│
-└── Options / Settings (src/options/Options.tsx)
-    └── Customize auto-gather, duplicate prevention, and layout
-```
+See [`docs/architecture.md`](docs/architecture.md), the domain glossary in [`CONTEXT.md`](CONTEXT.md), and the decision records in [`docs/adr/`](docs/adr/).
 
 ---
 
@@ -57,6 +41,9 @@ Firefox / Zen / Chromium Browser
 ```bash
 # Install dependencies
 npm install
+
+# Run the unit tests
+npm test
 
 # Build extension for Firefox / Chromium
 npm run build

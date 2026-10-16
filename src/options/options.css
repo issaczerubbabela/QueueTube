@@ -1,0 +1,136 @@
+@import '../ui/glass.css';
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(255, 69, 58, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 10%, rgba(100, 120, 255, 0.14), transparent 60%),
+    #111113;
+}
+@media (prefers-color-scheme: light) {
+  html {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(255, 69, 58, 0.12), transparent 60%),
+      radial-gradient(900px 500px at 100% 10%, rgba(100, 120, 255, 0.1), transparent 60%),
+      #f2f2f6;
+  }
+}
+
+body {
+  margin: 0;
+  font: 400 14px/1.45 var(--font);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 16px 64px;
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.masthead .logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+  box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.5);
+}
+.masthead div {
+  flex: 1;
+}
+.masthead h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+.masthead p {
+  margin: 2px 0 0;
+  color: var(--text-2);
+}
+.version {
+  align-self: flex-start;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  color: var(--text-2);
+  background: var(--fill);
+  font-variant-numeric: tabular-nums;
+}
+
+.group-label {
+  margin: 26px 0 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.group {
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 52px;
+  padding: 12px 16px;
+}
+.cell + .cell {
+  border-top: 1px solid var(--separator);
+}
+label.cell {
+  cursor: pointer;
+}
+label.cell:hover {
+  background: var(--fill);
+}
+.cell-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cell > :first-child {
+  flex: 1;
+}
+.unset {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.cell-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+.cell-detail {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+kbd {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font: 600 12px/1.4 ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  background: var(--fill-hover);
+  box-shadow: inset 0 -1px 0 var(--separator), inset 0 0 0 0.5px var(--glass-edge);
+}
+
+.btn.danger {
+  color: var(--accent);
+}
+
+.notice {
+  margin: 12px 16px 0;
+  font-size: 13px;
+  color: var(--text-2);
+}

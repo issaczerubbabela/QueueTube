@@ -1,17 +1,35 @@
-# QueueTube Architecture & Specification
+# QueueTube Architecture
 
-## Core Architectural Principles
+Vocabulary (player tab, entry, current entry, fresh tab, auto-queue, gather) is defined in [`CONTEXT.md`](../CONTEXT.md). Key decisions are in [`docs/adr/`](adr/).
 
-1. **YouTube as a Video Renderer**:
-   QueueTube treats YouTube solely as an HTML5 video player element. All state (queue items, history, master tab ID, settings) lives inside `browser.storage.local`.
+```text
+src/
+├── domain/            Pure, browser-free, unit-tested
+│   ├── queue.ts       The queue model: enqueue, advance, goBack, move, playerShowing…
+│   └── youtube.ts     What counts as YouTube; URL → video id; oEmbed/duration lookups
+├── shared/
+│   ├── messages.ts    The Command protocol (UI/content → background)
+│   └── state.ts       Storage layout + useExtensionState(), a read-only React view
+├── background/        The only writer of state (ADR 0001)
+│   ├── index.ts       Tab routing (fresh-tab rule, ADR 0002) and the command handler
+│   ├── player.ts      Finding, electing and driving the player tab
+│   └── store.ts       Serialized persistence, session bookkeeping, 1.0 → 1.1 migration
+├── content/           Runs on www.youtube.com; mounts the panel in the player tab only
+├── sidebar/           The in-page queue panel (Shadow DOM, styles inlined)
+├── popup/ options/    Extension pages
+└── ui/                Design system (glass.css) and shared components
+```
 
-2. **Shadow DOM Encapsulation**:
-   The QueueTube sidebar UI is injected into the YouTube watch page using a `ShadowRoot` (`#queuetube-host`). This ensures 100% CSS isolation between YouTube and QueueTube.
+## Data flow
 
-3. **Background Master Tab Router**:
-   The Background Service Worker tracks `masterTabId`. When a YouTube watch URL opens in a new tab:
-   - If no active Master player tab exists: promote the tab to Master.
-   - If Master player tab exists: extract video ID, add to queue, close temporary tab, and focus Master tab.
+1. A surface sends a `Command` (`send({ type: 'play/next' })`).
+2. The background runs it inside `serial()`, applying a pure function from `domain/queue.ts`, which returns the new queue and, optionally, a video to load.
+3. The background writes `storage.local` and, if needed, navigates the player tab.
+4. Every surface re-renders from `storage.onChanged`.
 
-4. **Event-Driven Storage Synchronization**:
-   All UI layers (Popup, Options, Content Script Sidebar) communicate via `browser.storage.onChanged` and Zustand store subscriptions, ensuring instant reactivity across all contexts.
+Tab bookkeeping (player tab id, fresh tabs, free tabs, undo snapshot) lives in `storage.session`: it survives the MV3 worker sleeping but is forgotten when the browser restarts, when tab ids become meaningless.
+
+## Testing
+
+- `npm test` runs the domain unit tests (Vitest).
+- The panel, popup and background are exercised end-to-end by loading `dist/` into Chromium.

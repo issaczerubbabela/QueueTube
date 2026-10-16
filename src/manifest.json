@@ -1,46 +1,45 @@
 {
   "manifest_version": 3,
   "name": "QueueTube",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "browser_specific_settings": {
     "gecko": {
       "id": "queuetube@issac.com",
-      "strict_min_version": "109.0",
+      "strict_min_version": "121.0",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   },
-  "description": "Transforms YouTube into a single-player experience with a persistent queue.",
+  "description": "Turns YouTube into a single-player experience: one player tab, and every other video you open lines up in a queue.",
   "permissions": [
     "storage",
     "tabs",
-    "webNavigation",
-    "activeTab",
     "scripting"
   ],
   "host_permissions": [
-    "*://*.youtube.com/*",
-    "https://www.youtube.com/oembed*",
-    "https://noembed.com/*"
+    "*://www.youtube.com/*",
+    "*://youtube.com/*"
   ],
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*"],
-      "js": ["content/index.js"],
+      "matches": [
+        "*://www.youtube.com/*"
+      ],
+      "js": [
+        "content/index.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "background": {
-    "scripts": ["background/index.js"],
+    "scripts": [
+      "background/index.js"
+    ],
     "service_worker": "background/index.js"
   },
-  "web_accessible_resources": [
-    {
-      "resources": ["content/style.css"],
-      "matches": ["*://*.youtube.com/*"]
-    }
-  ],
   "action": {
     "default_popup": "src/popup/index.html",
     "default_icon": {
@@ -63,25 +62,25 @@
       "suggested_key": {
         "default": "Alt+Shift+Q"
       },
-      "description": "Gather all open YouTube tabs into QueueTube"
+      "description": "Gather open YouTube video tabs into the queue"
     },
     "next-video": {
       "suggested_key": {
-        "default": "Alt+Shift+N"
+        "default": "Alt+Shift+Period"
       },
-      "description": "Play next video in queue"
+      "description": "Play the next video in the queue"
     },
     "previous-video": {
       "suggested_key": {
-        "default": "Alt+Shift+P"
+        "default": "Alt+Shift+Comma"
       },
-      "description": "Play previous video in queue"
+      "description": "Play the previous video"
     },
     "toggle-queue": {
       "suggested_key": {
         "default": "Alt+Shift+L"
       },
-      "description": "Toggle Queue Sidebar"
+      "description": "Collapse or expand the queue panel"
     }
   }
 }

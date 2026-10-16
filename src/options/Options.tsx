@@ -1,231 +1,179 @@
-import React, { useEffect } from 'react';
-import { useQueueStore } from '../shared/store';
-import {
-  ListVideo,
-  Layers,
-  Sparkles,
-  Shield,
-  Layout,
-  Moon,
-  Keyboard,
-  Check
-} from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import browser from 'webextension-polyfill';
+import type { Settings } from '../domain/queue';
+import { send } from '../shared/messages';
+import { useExtensionState } from '../shared/state';
+import { exportQueue, importQueue, pluralVideos } from '../ui/transfer';
 
-export const Options: React.FC = () => {
-  const store = useQueueStore();
+type BooleanSetting = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
+
+const QUEUE_SETTINGS: { key: BooleanSetting; title: string; detail: string }[] = [
+  {
+    key: 'autoQueue',
+    title: 'Auto-queue new tabs',
+    detail: 'A YouTube video opened in a new tab is added to the queue and the tab closes. Tabs you are already browsing in are never touched.',
+  },
+  {
+    key: 'focusPlayerAfterQueueing',
+    title: 'Return to the player',
+    detail: 'After queueing a video you opened in the foreground, switch back to the player tab. Background tabs never steal focus.',
+  },
+  {
+    key: 'allowDuplicates',
+    title: 'Allow duplicates',
+    detail: 'Let the same video appear in the queue more than once.',
+  },
+];
+
+const PLAYBACK_SETTINGS: { key: BooleanSetting; title: string; detail: string }[] = [
+  {
+    key: 'autoAdvance',
+    title: 'Play the next video automatically',
+    detail: 'When a queued video ends, the next one starts in the player tab.',
+  },
+  {
+    key: 'removeAfterPlaying',
+    title: 'Remove videos after playing',
+    detail: 'Videos leave the queue once you move past them. They stay in History.',
+  },
+  {
+    key: 'lookUpDurations',
+    title: 'Show video lengths',
+    detail: "YouTube's title lookup doesn't include length, so QueueTube reads part of each queued video's page (about 0.75 MB, without your cookies). Lengths also fill in as you watch.",
+  },
+];
+
+const COMMAND_LABELS: Record<string, string> = {
+  'gather-tabs': 'Gather open YouTube tabs',
+  'next-video': 'Play next',
+  'previous-video': 'Play previous',
+  'toggle-queue': 'Collapse or expand the panel',
+};
+
+function SettingRows({ rows, settings }: { rows: typeof QUEUE_SETTINGS; settings: Settings }) {
+  return (
+    <>
+      {rows.map(({ key, title, detail }) => (
+        <label key={key} className="cell">
+          <span className="cell-text">
+            <span className="cell-title">{title}</span>
+            <span className="cell-detail">{detail}</span>
+          </span>
+          <input
+            type="checkbox"
+            className="switch"
+            checked={settings[key]}
+            onChange={(e) => send({ type: 'settings/update', patch: { [key]: e.target.checked } })}
+          />
+        </label>
+      ))}
+    </>
+  );
+}
+
+export function Options() {
+  const { ready, queue, settings } = useExtensionState();
+  const [commands, setCommands] = useState<browser.Commands.Command[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const isFirefox = navigator.userAgent.includes('Firefox');
 
   useEffect(() => {
-    store.init();
+    browser.commands?.getAll().then(setCommands).catch(() => {});
   }, []);
 
-  const toggleSetting = (key: keyof typeof store.settings) => {
-    const val = store.settings[key];
-    if (typeof val === 'boolean') {
-      store.setSettings({ [key]: !val });
-    }
-  };
+  if (!ready) return null;
+
+  const openShortcutSettings = () =>
+    isFirefox
+      ? browser.tabs.create({ url: 'about:addons' })
+      : browser.tabs.create({ url: 'chrome://extensions/shortcuts' });
 
   return (
-    <div className="min-h-screen bg-yt-dark text-yt-text font-sans antialiased">
-      {/* Top Banner */}
-      <header className="border-b border-yt-border/50 bg-yt-paper/50 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-xl bg-yt-red/10 border border-yt-red/30 shadow-glow flex items-center justify-center">
-              <img src="/icons/icon48.png" alt="QueueTube Logo" className="w-7 h-7 object-contain drop-shadow-md" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">QueueTube Settings</h1>
-              <p className="text-xs text-yt-muted">Customize your YouTube single-player queue experience</p>
-            </div>
-          </div>
-
-          <div className="text-xs text-yt-muted font-mono bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
-            v1.0.0
-          </div>
+    <main className="page">
+      <header className="masthead">
+        <img src="/icons/icon128.png" alt="" className="logo" />
+        <div>
+          <h1>QueueTube</h1>
+          <p>One player tab. Every other video lines up behind it.</p>
         </div>
+        <span className="version">v{browser.runtime.getManifest().version}</span>
       </header>
 
-      {/* Main Form */}
-      <main className="max-w-4xl mx-auto px-6 py-8 space-y-8">
-        {/* Section 1: Queue Behavior */}
-        <section className="bg-yt-paper/40 border border-yt-border/50 rounded-2xl p-6 space-y-6">
-          <div className="flex items-center gap-2 text-white font-semibold border-b border-yt-border/40 pb-3">
-            <Layers className="w-5 h-5 text-yt-red" />
-            <h2>Queue & Interception Behavior</h2>
-          </div>
+      <h2 className="group-label">Queueing</h2>
+      <section className="group glass">
+        <SettingRows rows={QUEUE_SETTINGS} settings={settings} />
+      </section>
 
-          <div className="space-y-4">
-            {/* Auto Gather */}
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-yt-paper/30 hover:bg-yt-paper/60 transition-colors">
-              <div>
-                <h3 className="text-sm font-medium text-white">Auto Gather New Tabs</h3>
-                <p className="text-xs text-yt-muted mt-0.5">
-                  Automatically intercept newly opened YouTube watch tabs and add them to queue.
-                </p>
-              </div>
-              <button
-                onClick={() => toggleSetting('autoGather')}
-                className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${
-                  store.settings.autoGather ? 'bg-yt-red' : 'bg-yt-border'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                    store.settings.autoGather ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
+      <h2 className="group-label">Playback</h2>
+      <section className="group glass">
+        <SettingRows rows={PLAYBACK_SETTINGS} settings={settings} />
+      </section>
 
-            {/* Allow Duplicates */}
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-yt-paper/30 hover:bg-yt-paper/60 transition-colors">
-              <div>
-                <h3 className="text-sm font-medium text-white">Allow Duplicate Videos</h3>
-                <p className="text-xs text-yt-muted mt-0.5">
-                  Allow the same video to be queued multiple times.
-                </p>
-              </div>
-              <button
-                onClick={() => toggleSetting('allowDuplicates')}
-                className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${
-                  store.settings.allowDuplicates ? 'bg-yt-red' : 'bg-yt-border'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                    store.settings.allowDuplicates ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
+      <h2 className="group-label">Keyboard shortcuts</h2>
+      <section className="group glass">
+        {commands
+          .filter((c) => c.name && COMMAND_LABELS[c.name])
+          .map((c) => (
+            <div key={c.name} className="cell">
+              <span className="cell-title">{COMMAND_LABELS[c.name!]}</span>
+              {c.shortcut ? <kbd>{c.shortcut}</kbd> : <span className="unset">Not set</span>}
             </div>
+          ))}
+        <div className="cell">
+          <span className="cell-detail">Shortcuts are managed by your browser.</span>
+          <button className="btn" onClick={openShortcutSettings}>
+            Change shortcuts
+          </button>
+        </div>
+      </section>
 
-            {/* Auto Remove Played */}
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-yt-paper/30 hover:bg-yt-paper/60 transition-colors">
-              <div>
-                <h3 className="text-sm font-medium text-white">Auto Remove Played Videos</h3>
-                <p className="text-xs text-yt-muted mt-0.5">
-                  Automatically remove videos from queue after they finish playing and move to History.
-                </p>
-              </div>
-              <button
-                onClick={() => toggleSetting('autoRemovePlayed')}
-                className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${
-                  store.settings.autoRemovePlayed ? 'bg-yt-red' : 'bg-yt-border'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                    store.settings.autoRemovePlayed ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Auto Focus Player */}
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-yt-paper/30 hover:bg-yt-paper/60 transition-colors">
-              <div>
-                <h3 className="text-sm font-medium text-white">Auto Focus Player Tab</h3>
-                <p className="text-xs text-yt-muted mt-0.5">
-                  Switch focus back to the Master Player tab whenever a new video is queued.
-                </p>
-              </div>
-              <button
-                onClick={() => toggleSetting('autoFocusPlayer')}
-                className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-0.5 ${
-                  store.settings.autoFocusPlayer ? 'bg-yt-red' : 'bg-yt-border'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                    store.settings.autoFocusPlayer ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Section 2: Appearance & Layout */}
-        <section className="bg-yt-paper/40 border border-yt-border/50 rounded-2xl p-6 space-y-6">
-          <div className="flex items-center gap-2 text-white font-semibold border-b border-yt-border/40 pb-3">
-            <Layout className="w-5 h-5 text-yt-red" />
-            <h2>Appearance & Sidebar Layout</h2>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-white block mb-1.5">Queue Location</label>
-              <p className="text-xs text-yt-muted mb-2.5">Controls where the QueueTube sidebar is anchored on YouTube.</p>
-              <div className="grid grid-cols-3 gap-3">
-                {(['right', 'bottom', 'floating'] as const).map((loc) => {
-                  const labels: Record<string, string> = {
-                    right: 'Right Sidebar',
-                    bottom: 'Bottom Bar',
-                    floating: 'Floating',
-                  };
-                  const notes: Record<string, string> = {
-                    right: 'Embedded in YouTube secondary column',
-                    bottom: 'Coming soon',
-                    floating: 'Coming soon',
-                  };
-                  const disabled = loc !== 'right';
-                  return (
-                    <button
-                      key={loc}
-                      onClick={() => !disabled && store.setSettings({ queueLocation: loc })}
-                      disabled={disabled}
-                      className={`p-3 rounded-xl border text-xs font-semibold flex flex-col items-center gap-1 transition-all ${
-                        store.settings.queueLocation === loc
-                          ? 'border-yt-red bg-yt-red/10 text-white shadow-glow'
-                          : disabled
-                          ? 'border-white/5 bg-yt-paper/20 text-yt-muted/40 cursor-not-allowed'
-                          : 'border-white/10 bg-yt-paper/30 text-yt-muted hover:text-white'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        {store.settings.queueLocation === loc && <Check className="w-3.5 h-3.5 text-yt-red" />}
-                        {labels[loc]}
-                      </span>
-                      {disabled && <span className="text-[10px] font-normal opacity-60">{notes[loc]}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Section 3: Keyboard Shortcuts */}
-        <section className="bg-yt-paper/40 border border-yt-border/50 rounded-2xl p-6 space-y-4">
-          <div className="flex items-center gap-2 text-white font-semibold border-b border-yt-border/40 pb-3">
-            <Keyboard className="w-5 h-5 text-yt-red" />
-            <h2>Keyboard Shortcuts</h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="flex items-center justify-between p-3 rounded-xl bg-yt-paper/30">
-              <span className="text-yt-muted">Gather Open Tabs</span>
-              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Alt+Shift+Q</kbd>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl bg-yt-paper/30">
-              <span className="text-yt-muted">Play Next Video</span>
-              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Alt+Shift+N</kbd>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl bg-yt-paper/30">
-              <span className="text-yt-muted">Play Previous Video</span>
-              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Alt+Shift+P</kbd>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl bg-yt-paper/30">
-              <span className="text-yt-muted">Toggle Queue Sidebar</span>
-              <kbd className="bg-white/10 px-2 py-1 rounded text-white font-mono font-bold">Alt+Shift+L</kbd>
-            </div>
-          </div>
-          <p className="text-[11px] text-yt-muted/60 mt-2">
-            To change shortcuts, go to <span className="text-white/60 font-mono">chrome://extensions/shortcuts</span> (Chrome) or <span className="text-white/60 font-mono">about:addons</span> (Firefox).
-          </p>
-        </section>
-      </main>
-    </div>
+      <h2 className="group-label">Your queue</h2>
+      <section className="group glass">
+        <div className="cell">
+          <span className="cell-text">
+            <span className="cell-title">Export</span>
+            <span className="cell-detail">Save the queue ({pluralVideos(queue.entries.length)}) as a text file of links.</span>
+          </span>
+          <button className="btn" disabled={queue.entries.length === 0} onClick={() => exportQueue(queue.entries)}>
+            Export
+          </button>
+        </div>
+        <div className="cell">
+          <span className="cell-text">
+            <span className="cell-title">Import</span>
+            <span className="cell-detail">Add every YouTube link found in a text file.</span>
+          </span>
+          <button className="btn" onClick={() => fileInput.current?.click()}>
+            Import…
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".txt,text/plain"
+            hidden
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) setNotice(await importQueue(file).catch(() => 'Could not read that file'));
+            }}
+          />
+        </div>
+        <div className="cell">
+          <span className="cell-text">
+            <span className="cell-title">History</span>
+            <span className="cell-detail">{pluralVideos(queue.history.length)} you've moved past.</span>
+          </span>
+          <button className="btn danger" disabled={queue.history.length === 0} onClick={() => send({ type: 'history/clear' })}>
+            Clear history
+          </button>
+        </div>
+      </section>
+      {notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
+    </main>
   );
-};
+}

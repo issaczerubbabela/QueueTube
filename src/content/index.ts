@@ -1,222 +1,134 @@
+// Runs on www.youtube.com. In the player tab it mounts the queue panel into YouTube's
+// secondary column and reports when a video ends or its details become known.
 import React from 'react';
-import { createRoot } from 'react-dom/client';
-import { QueueSidebar } from '../sidebar/QueueSidebar';
-import { useQueueStore } from '../shared/store';
-import { extractVideoId } from '../utils/youtube';
+import { createRoot, Root } from 'react-dom/client';
+import browser from 'webextension-polyfill';
+import { parseVideoId } from '../domain/youtube';
+import type { RoleQuery, TabMessage } from '../shared/messages';
+import { send } from '../shared/messages';
+import { Sidebar } from '../sidebar/Sidebar';
+import sidebarCss from '../sidebar/sidebar.css?inline';
 
-const extApi = typeof browser !== 'undefined' ? browser : chrome;
+const HOST_ID = 'queuetube-host';
 
-let shadowContainer: HTMLDivElement | null = null;
-let shadowRootRef: ShadowRoot | null = null;
-let messageListenerAttached = false;
-let navigationObserverAttached = false;
+// After an extension update the old copy of this script is orphaned but its panel stays in
+// the page; the new copy replaces it.
+document.getElementById(HOST_ID)?.remove();
 
-function getYouTubeQueueParent(): HTMLElement | null {
-  return (
-    document.querySelector('#secondary-inner') ||
-    document.querySelector('#secondary') ||
-    document.querySelector('#columns')
-  ) as HTMLElement | null;
+let host: HTMLElement | null = null;
+let root: Root | null = null;
+let isPlayer = false;
+
+function secondaryColumn(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('ytd-watch-flexy #secondary-inner') ??
+    document.querySelector<HTMLElement>('ytd-watch-flexy #secondary');
 }
 
-function styleHost(host: HTMLDivElement, isIntegrated: boolean) {
-  host.style.zIndex = isIntegrated ? '1' : '9999';
-  host.style.pointerEvents = 'auto';
-
-  if (isIntegrated) {
-    host.style.position = 'relative';
-    host.style.top = '';
-    host.style.right = '';
-    host.style.bottom = '';
-    host.style.width = '100%';
-    host.style.marginBottom = '16px';
-  } else {
-    host.style.position = 'fixed';
-    host.style.top = '56px';
-    host.style.right = '0';
-    host.style.bottom = '0';
-    host.style.width = '';
-    host.style.marginBottom = '';
-  }
+function syncTheme() {
+  host?.setAttribute('data-theme', document.documentElement.hasAttribute('dark') ? 'dark' : 'light');
 }
 
-function ensureHostPlacement() {
-  if (!shadowContainer || !document.body.contains(shadowContainer)) return;
-  const queueParent = getYouTubeQueueParent();
-  if (!queueParent || shadowContainer.parentElement === queueParent) return;
-
-  styleHost(shadowContainer, true);
-  shadowContainer.style.visibility = 'visible';
-  queueParent.prepend(shadowContainer);
-  console.log('[QueueTube Content] Moved QueueTube host into YouTube secondary column.');
-}
-
-async function checkAndInject() {
-  try {
-    const res = await extApi.runtime.sendMessage({ type: 'IS_MASTER_TAB' });
-    if (res && res.isMaster) {
-      injectQueueTubeSidebar();
-    } else {
-      const staleHost = document.getElementById('queuetube-host');
-      if (staleHost) {
-        staleHost.remove();
-        shadowContainer = null;
-      }
-    }
-  } catch (e) {}
-}
-
-function injectQueueTubeSidebar() {
-  if (shadowContainer && document.body.contains(shadowContainer)) {
-    console.log('[QueueTube Content] Host element already injected.');
-    return;
-  }
-
-  const staleHost = document.getElementById('queuetube-host');
-  if (staleHost) {
-    console.log('[QueueTube Content] Removing stale QueueTube host before reinjection.');
-    staleHost.remove();
-  }
-
-  console.log('[QueueTube Content] Injecting QueueTube Host & Shadow DOM into YouTube...');
-
-  // Create Host Container
-  const host = document.createElement('div');
-  host.id = 'queuetube-host';
-  const queueParent = getYouTubeQueueParent();
-  styleHost(host, Boolean(queueParent));
-
-  // Attach Shadow DOM
-  const shadow = host.attachShadow({ mode: 'open' });
-  shadowRootRef = shadow;
-
-  // Inject Styles into Shadow Root via <link>
-  const linkEl = document.createElement('link');
-  linkEl.rel = 'stylesheet';
-  linkEl.href = extApi.runtime.getURL('content/style.css');
-  shadow.appendChild(linkEl);
-
-  // Mount Point
-  const mountPoint = document.createElement('div');
-  mountPoint.id = 'queuetube-mount';
-  mountPoint.className = 'h-full flex items-stretch font-sans antialiased';
-  shadow.appendChild(mountPoint);
-
-  if (queueParent) {
-    // Secondary column already exists — place immediately and show
-    host.style.visibility = 'visible';
-    queueParent.prepend(host);
-  } else {
-    // Secondary column not ready yet — hide until ensureHostPlacement() moves it
-    host.style.visibility = 'hidden';
-    document.body.appendChild(host);
-  }
-  shadowContainer = host;
-
-  // Render React Sidebar Component
-  const root = createRoot(mountPoint);
-  root.render(React.createElement(QueueSidebar));
-
-  console.log('[QueueTube Content] Shadow DOM Sidebar injected & rendered successfully.');
-}
-
-// Observe HTML5 Video Player Events
-function setupVideoPlayerObserver() {
-  const attachVideoListeners = () => {
-    const videoEl = document.querySelector('video.html5-main-video') as HTMLVideoElement;
-    if (!videoEl) return;
-
-    if (videoEl.dataset.queuetubeAttached) return;
-    videoEl.dataset.queuetubeAttached = 'true';
-
-    console.log('[QueueTube Content] Attached HTML5 Video Player event listener to:', videoEl);
-
-    videoEl.addEventListener('ended', async () => {
-      console.log('[QueueTube Content] Video ended event fired. Checking auto-play...');
-      try {
-        const res = await extApi.runtime.sendMessage({ type: 'IS_MASTER_TAB' });
-        if (res && res.isMaster) {
-          const store = useQueueStore.getState();
-          if (store.queue.length > 0) {
-            console.log('[QueueTube Content] Advancing to next video in queue...');
-            await store.playNext();
-          }
-        }
-      } catch (e) {}
-    });
-  };
-
-  attachVideoListeners();
-
-  // Retry observer if player renders dynamically
-  const observer = new MutationObserver(() => {
-    attachVideoListeners();
-    ensureHostPlacement();
+/** Keeps the panel at the top of the secondary column, which YouTube creates lazily. */
+let placementScheduled = false;
+function schedulePlacement() {
+  if (placementScheduled || !host) return;
+  placementScheduled = true;
+  requestAnimationFrame(() => {
+    placementScheduled = false;
+    if (!host) return;
+    const column = secondaryColumn();
+    if (column && (host.parentElement !== column || column.firstElementChild !== host)) column.prepend(host);
+    host.hidden = !column || !location.pathname.startsWith('/watch');
   });
+}
+
+const observer = new MutationObserver(schedulePlacement);
+const themeObserver = new MutationObserver(syncTheme);
+
+function mount() {
+  if (host) return;
+  host = document.createElement('div');
+  host.id = HOST_ID;
+  host.hidden = true;
+  // Page styles outrank :host rules, so spacing against YouTube's list is set inline.
+  host.style.marginBottom = '16px';
+  const shadow = host.attachShadow({ mode: 'open' });
+  const style = document.createElement('style');
+  style.textContent = sidebarCss;
+  const mountPoint = document.createElement('div');
+  shadow.append(style, mountPoint);
+  syncTheme();
+  document.body.append(host);
+
+  root = createRoot(mountPoint);
+  root.render(React.createElement(Sidebar));
   observer.observe(document.body, { childList: true, subtree: true });
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['dark'] });
+  schedulePlacement();
 }
 
-// Observe YouTube Navigation (yt-navigate-finish / URL changes)
-function setupNavigationObserver() {
-  if (navigationObserverAttached) return;
-  navigationObserverAttached = true;
-  const handleNav = async () => {
-    const videoId = extractVideoId(window.location.href);
-    const res = await extApi.runtime.sendMessage({ type: 'IS_MASTER_TAB' });
-    if (res && res.isMaster) {
-      if (videoId) {
-        useQueueStore.getState().setCurrentVideoId(videoId);
-      }
-      await checkAndInject();
-    } else {
-      extApi.runtime.sendMessage({ type: 'CHECK_AUTOGATHER', url: window.location.href });
-    }
-  };
-  window.addEventListener('yt-navigate-finish', handleNav);
-  window.addEventListener('popstate', handleNav);
-  handleNav();
+function unmount() {
+  observer.disconnect();
+  themeObserver.disconnect();
+  root?.unmount();
+  host?.remove();
+  root = null;
+  host = null;
 }
 
-function initContentScript() {
-  // Idempotent message listener
-  if (!messageListenerAttached) {
-    messageListenerAttached = true;
-    extApi.runtime.onMessage.addListener((message: any, _sender: any, sendResponse: (response?: any) => void) => {
-      console.log('[QueueTube Content] Received message:', message);
-      if (message && message.type === 'PING_QUEUE_TUBE') {
-        sendResponse({ success: true });
-        return true;
-      }
-      if (message && message.type === 'OPEN_SIDEBAR') {
-        const store = useQueueStore.getState();
-        store.setSettings({ sidebarCollapsed: false });
-        sendResponse({ success: true });
-        return true;
-      }
-      if (message && message.type === 'TOGGLE_SIDEBAR') {
-        const store = useQueueStore.getState();
-        store.setSettings({ sidebarCollapsed: !store.settings.sidebarCollapsed });
-        sendResponse({ success: true });
-        return true;
-      }
-      return false;
-    });
+function setRole(player: boolean) {
+  isPlayer = player;
+  if (player) mount();
+  else unmount();
+}
+
+// ── Playback reporting (player tab only) ────────────────────────────────────
+
+const playerVideo = (target: EventTarget | null): HTMLVideoElement | null =>
+  target instanceof HTMLVideoElement && target.classList.contains('html5-main-video') ? target : null;
+
+const adShowing = () => document.querySelector('#movie_player.ad-showing') !== null;
+
+// Media events do not bubble, but they can be caught on the way down.
+document.addEventListener(
+  'ended',
+  (event) => {
+    if (!isPlayer || !playerVideo(event.target) || adShowing()) return;
+    send({ type: 'player/ended', videoId: parseVideoId(location.href) }).catch(() => {});
+  },
+  true
+);
+
+document.addEventListener(
+  'loadedmetadata',
+  (event) => {
+    const video = playerVideo(event.target);
+    if (!isPlayer || !video || adShowing() || !Number.isFinite(video.duration)) return;
+    // Only trust the duration when the URL and YouTube's own idea of the video agree; during
+    // an in-page navigation one can briefly lag the other. Title and channel come from oEmbed.
+    const videoId = parseVideoId(location.href);
+    const flexyId = document.querySelector('ytd-watch-flexy')?.getAttribute('video-id');
+    if (!videoId || (flexyId && flexyId !== videoId)) return;
+    send({ type: 'player/describe', videoId, title: '', channel: '', durationSec: Math.round(video.duration) }).catch(() => {});
+  },
+  true
+);
+
+window.addEventListener('yt-navigate-finish', schedulePlacement);
+
+// ── Wiring ──────────────────────────────────────────────────────────────────
+
+browser.runtime.onMessage.addListener((message: unknown) => {
+  const msg = message as TabMessage;
+  if (msg?.type === 'ping') return Promise.resolve(true);
+  if (msg?.type === 'role') {
+    setRole(msg.isPlayer);
+    return Promise.resolve(true);
   }
+  return undefined;
+});
 
-  console.log('[QueueTube Content] Initializing content script on:', window.location.href);
-  if (window.location.hostname.includes('youtube.com')) {
-    checkAndInject();
-    setupVideoPlayerObserver();
-    setupNavigationObserver();
-  }
-}
-
-// Aggressive initialization to handle YouTube's SPA and early injection
-function tryInit() {
-  if (document.body) {
-    initContentScript();
-  } else {
-    setTimeout(tryInit, 50);
-  }
-}
-tryInit();
+browser.runtime
+  .sendMessage({ type: 'tab/role' } satisfies RoleQuery)
+  .then((reply) => setRole(Boolean((reply as { isPlayer?: boolean })?.isPlayer)))
+  .catch(() => {});
