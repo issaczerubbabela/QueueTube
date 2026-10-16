@@ -98,6 +98,14 @@ export function canGoBack(queue: Queue, settings: Settings): boolean {
   return (!settings.removeAfterPlaying && currentIndex(queue) > 0) || queue.history.length > 0;
 }
 
+/**
+ * Which of YouTube's own next/previous controls (media keys, Shift+N) Cue takes over: a direction
+ * goes to the queue when it has a video that way, and otherwise stays YouTube's.
+ */
+export function queueDirections(queue: Queue, settings: Settings): { next: boolean; previous: boolean } {
+  return { next: nextEntry(queue) !== null, previous: canGoBack(queue, settings) };
+}
+
 // ── Commands ─────────────────────────────────────────────────────────────────
 
 /** Where new entries go: the end, right after the current entry ("Play next"), or an index. */

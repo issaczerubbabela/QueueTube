@@ -32,9 +32,29 @@
         "*://www.youtube.com/*"
       ],
       "js": [
+        "page/index.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://www.youtube.com/*"
+      ],
+      "js": [
         "content/index.js"
       ],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "page/index.js"
+      ],
+      "matches": [
+        "*://www.youtube.com/*"
+      ]
     }
   ],
   "background": {

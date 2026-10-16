@@ -1,5 +1,5 @@
-// Builds the extension into dist/: two classic (IIFE) scripts for the background worker and the
-// content script, plus the popup and options pages.
+// Builds the extension into dist/: classic (IIFE) scripts for the background worker, the content
+// script and the page-context script, plus the popup and options pages.
 import { build } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
@@ -29,6 +29,7 @@ fs.rmSync(dist, { recursive: true, force: true });
 
 await script('background', 'src/background/index.ts');
 await script('content', 'src/content/index.ts');
+await script('page', 'src/content/page.ts');
 await build({
   ...shared,
   build: {

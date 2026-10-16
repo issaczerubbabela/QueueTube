@@ -8,6 +8,7 @@ import type { RoleQuery, TabMessage } from '../shared/messages';
 import { send } from '../shared/messages';
 import { Sidebar } from '../sidebar/Sidebar';
 import { listenForAltClicks } from './altClick';
+import { listenForMediaControls, setMediaControlsRole } from './mediaControls';
 import sidebarCss from '../sidebar/sidebar.css?inline';
 
 const HOST_ID = 'queuetube-host';
@@ -84,6 +85,7 @@ function unmount() {
 
 function setRole(player: boolean) {
   isPlayer = player;
+  setMediaControlsRole(player);
   if (player) mount();
   else unmount();
 }
@@ -124,6 +126,8 @@ window.addEventListener('yt-navigate-finish', schedulePlacement);
 
 // Every YouTube tab, not just the player: Alt+click a video link to queue it.
 listenForAltClicks(HOST_ID);
+// In the player tab, media keys and Shift+N follow the queue (with page.ts).
+listenForMediaControls();
 
 // ── Wiring ──────────────────────────────────────────────────────────────────
 

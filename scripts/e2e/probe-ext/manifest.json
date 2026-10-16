@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Cue probe",
+  "version": "1.0",
+  "browser_specific_settings": { "gecko": { "id": "probe@cue.test", "strict_min_version": "121.0" } },
+  "host_permissions": ["*://www.youtube.com/*"],
+  "content_scripts": [
+    { "matches": ["*://www.youtube.com/*"], "js": ["main.js"], "run_at": "document_start", "world": "MAIN" },
+    { "matches": ["*://www.youtube.com/*"], "js": ["iso.js"], "run_at": "document_start" }
+  ],
+  "web_accessible_resources": [{ "resources": ["injected.js"], "matches": ["*://www.youtube.com/*"] }]
+}

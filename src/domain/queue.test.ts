@@ -8,6 +8,7 @@ import {
   Video,
   advance,
   canGoBack,
+  queueDirections,
   clear,
   currentEntry,
   describe,
@@ -259,5 +260,26 @@ group('restore', () => {
   it('restores the old current entry after a clear', () => {
     const before = queueOf(['a', 'b'], 1);
     expect(restore(clear(before), before).currentId).toBe('id2');
+  });
+});
+
+group('queueDirections', () => {
+  it('takes over next only when an entry follows the current one', () => {
+    expect(queueDirections(queueOf(['a', 'b'], 0), settings()).next).toBe(true);
+    expect(queueDirections(queueOf(['a', 'b'], 1), settings()).next).toBe(false);
+    expect(queueDirections(EMPTY_QUEUE, settings()).next).toBe(false);
+  });
+
+  it('still offers the entry after the current one when the player has wandered off', () => {
+    const wandered = playerShowing(queueOf(['a', 'b'], 0), 'zzz');
+    expect(queueDirections(wandered, settings()).next).toBe(true);
+    expect(advance(wandered, settings()).play).toBe('b');
+  });
+
+  it('takes over previous exactly when Cue can go back', () => {
+    expect(queueDirections(queueOf(['a', 'b'], 0), settings()).previous).toBe(false);
+    expect(queueDirections(queueOf(['a', 'b'], 1), settings()).previous).toBe(true);
+    const played = advance(queueOf(['a', 'b'], 0), settings({ removeAfterPlaying: true })).queue;
+    expect(queueDirections(played, settings({ removeAfterPlaying: true })).previous).toBe(true);
   });
 });
