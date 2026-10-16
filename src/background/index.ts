@@ -3,6 +3,7 @@ import browser from 'webextension-polyfill';
 import * as Q from '../domain/queue';
 import { fetchDuration, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, watchUrl } from '../domain/youtube';
 import type { Command, OptionsSection, RoleQuery, Status } from '../shared/messages';
+import { createMenus, onMenuClick } from './menus';
 import { currentPlayer, electPlayer, focusPlayer, focusTab, loadVideo, setPlayer } from './player';
 import {
   TabBook,
@@ -57,6 +58,14 @@ function describeLater(videoIds: string[]): void {
     }
   };
   for (let i = 0; i < 3; i++) worker();
+}
+
+/** Adds videos to the queue (end, Play next or an index) and fetches their details. */
+async function add(videoIds: string[], at: Q.Position = 'end'): Promise<{ added: number }> {
+  const before = (await loadQueue()).entries.length;
+  await apply((q, s) => Q.enqueue(q, videoIds.map(blankVideo), s, at));
+  describeLater(videoIds);
+  return { added: (await loadQueue()).entries.length - before };
 }
 
 async function snapshotForUndo(): Promise<void> {
@@ -213,12 +222,8 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     case 'tabs/gather':
       return gather();
 
-    case 'queue/add': {
-      const before = (await loadQueue()).entries.length;
-      await apply((q, s) => Q.enqueue(q, command.videoIds.map(blankVideo), s));
-      describeLater(command.videoIds);
-      return { added: (await loadQueue()).entries.length - before };
-    }
+    case 'queue/add':
+      return add(command.videoIds, command.at);
     case 'queue/remove':
       if (!(await loadQueue()).entries.some((e) => e.id === command.entryId)) return;
       await snapshotForUndo();
@@ -295,6 +300,8 @@ browser.runtime.onMessage.addListener((message: unknown, sender) => {
   return serial(() => handle(command, sender));
 });
 
+onMenuClick((videoIds, at) => serial(() => add(videoIds, at)));
+
 browser.commands?.onCommand.addListener((name) => {
   serial(async () => {
     if (name === 'gather-tabs') await gather();
@@ -311,6 +318,7 @@ browser.commands?.onCommand.addListener((name) => {
 
 /** Once per browser launch or install: adopt an open YouTube tab and fill in missing details. */
 function onLaunch(isBrowserStart: boolean) {
+  createMenus().catch((err) => console.error('[Cue] Could not create the right-click menu', err));
   serial(async () => {
     await migrateLegacyState();
     const book = await loadBook();

@@ -39,7 +39,7 @@ const video = (videoId: string, durationSec: number | null = null): Video => ({
 const settings = (overrides: Partial<Settings> = {}): Settings => ({ ...DEFAULT_SETTINGS, ...overrides });
 
 function queueOf(ids: string[], current: number | null = null): Queue {
-  const queue = enqueue(EMPTY_QUEUE, ids.map((id) => video(id)), { allowDuplicates: true }, fakeClock());
+  const queue = enqueue(EMPTY_QUEUE, ids.map((id) => video(id)), { allowDuplicates: true }, 'end', fakeClock());
   return { ...queue, currentId: current === null ? null : queue.entries[current].id };
 }
 
@@ -59,6 +59,43 @@ group('enqueue', () => {
   it('returns the same queue when nothing is added', () => {
     const q = queueOf(['a']);
     expect(enqueue(q, [video('a')], { allowDuplicates: false })).toBe(q);
+  });
+
+  it('adds to the end by default', () => {
+    expect(ids(enqueue(queueOf(['a', 'b'], 0), [video('c'), video('d')], settings(), 'end'))).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('adds Play next right after the current entry, in order', () => {
+    const q = enqueue(queueOf(['a', 'b', 'c'], 1), [video('x'), video('y')], settings(), 'next');
+    expect(ids(q)).toEqual(['a', 'b', 'x', 'y', 'c']);
+    expect(currentEntry(q)?.videoId).toBe('b');
+  });
+
+  it('adds Play next to the top when nothing is current, so next plays it', () => {
+    const q = enqueue(queueOf(['a', 'b']), [video('x')], settings(), 'next');
+    expect(ids(q)).toEqual(['x', 'a', 'b']);
+    expect(advance(q, settings()).play).toBe('x');
+  });
+
+  it('adds Play next after the current entry even while the player is elsewhere', () => {
+    const q = enqueue(playerShowing(queueOf(['a', 'b'], 0), 'zzz'), [video('x')], settings(), 'next');
+    expect(ids(q)).toEqual(['a', 'x', 'b']);
+  });
+
+  it('adds at an index, clamped to the queue', () => {
+    expect(ids(enqueue(queueOf(['a', 'b', 'c']), [video('x')], settings(), 1))).toEqual(['a', 'x', 'b', 'c']);
+    expect(ids(enqueue(queueOf(['a']), [video('x')], settings(), 99))).toEqual(['a', 'x']);
+    expect(ids(enqueue(queueOf(['a']), [video('x')], settings(), -3))).toEqual(['x', 'a']);
+  });
+
+  it('respects Allow duplicates wherever it adds', () => {
+    const q = queueOf(['a', 'b', 'c'], 0);
+    const off = settings({ allowDuplicates: false });
+    const on = settings({ allowDuplicates: true });
+    expect(ids(enqueue(q, [video('c'), video('x')], off, 'next'))).toEqual(['a', 'x', 'b', 'c']);
+    expect(ids(enqueue(q, [video('c')], on, 'next'))).toEqual(['a', 'c', 'b', 'c']);
+    expect(enqueue(q, [video('b')], off, 0)).toBe(q);
+    expect(ids(enqueue(q, [video('b')], on, 0))).toEqual(['b', 'a', 'b', 'c']);
   });
 });
 
@@ -213,7 +250,7 @@ group('upcoming / remainingSeconds', () => {
 group('restore', () => {
   it('brings removed entries back without losing ones added since', () => {
     const before = queueOf(['a', 'b', 'c'], 0);
-    const later = enqueue(remove(before, 'id2'), [video('d')], { allowDuplicates: false }, { now: () => 0, newId: () => 'new' });
+    const later = enqueue(remove(before, 'id2'), [video('d')], { allowDuplicates: false }, 'end', { now: () => 0, newId: () => 'new' });
     const undone = restore(later, before);
     expect(ids(undone)).toEqual(['a', 'b', 'c', 'd']);
     expect(undone.currentId).toBe('id1');

@@ -100,10 +100,14 @@ export function canGoBack(queue: Queue, settings: Settings): boolean {
 
 // ── Commands ─────────────────────────────────────────────────────────────────
 
+/** Where new entries go: the end, right after the current entry ("Play next"), or an index. */
+export type Position = 'end' | 'next' | number;
+
 export function enqueue(
   queue: Queue,
   videos: Video[],
   settings: Pick<Settings, 'allowDuplicates'>,
+  at: Position = 'end',
   clock: Clock = systemClock
 ): Queue {
   const seen = new Set(queue.entries.map((e) => e.videoId));
@@ -114,7 +118,11 @@ export function enqueue(
     added.push({ ...video, id: clock.newId(), addedAt: clock.now() });
   }
   if (added.length === 0) return queue;
-  return { ...queue, entries: [...queue.entries, ...added] };
+  const index =
+    at === 'end' ? queue.entries.length : at === 'next' ? currentIndex(queue) + 1 : Math.max(0, Math.min(at, queue.entries.length));
+  const entries = [...queue.entries];
+  entries.splice(index, 0, ...added);
+  return { ...queue, entries };
 }
 
 export function remove(queue: Queue, entryId: string): Queue {

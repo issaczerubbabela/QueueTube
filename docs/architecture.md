@@ -14,6 +14,7 @@ src/
 ├── background/        The only writer of state (ADR 0001)
 │   ├── index.ts       Tab routing (fresh-tab rule, ADR 0002) and the command handler
 │   ├── player.ts      Finding, electing and driving the player tab
+│   ├── menus.ts       The right-click menu (Add to queue, Play next, Queue all YouTube links here)
 │   └── store.ts       Serialized persistence, session bookkeeping, 1.0 → 1.1 migration
 ├── content/           Runs on www.youtube.com; mounts the panel in the player tab only
 ├── sidebar/           The in-page queue panel (Shadow DOM, styles inlined)

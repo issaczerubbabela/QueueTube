@@ -1,10 +1,11 @@
 // The protocol between UI surfaces / content script and the background worker.
 // UI surfaces never write queue state themselves; they send a Command (ADR 0001).
 import browser from 'webextension-polyfill';
-import type { Settings } from '../domain/queue';
+import type { Position, Settings } from '../domain/queue';
 
 export type Command =
-  | { type: 'queue/add'; videoIds: string[] }
+  /** Adds videos at the end (the default), as Play next, or at an index. */
+  | { type: 'queue/add'; videoIds: string[]; at?: Position }
   | { type: 'queue/remove'; entryId: string }
   | { type: 'queue/move'; entryId: string; toIndex: number }
   | { type: 'queue/playNextInLine'; entryId: string }

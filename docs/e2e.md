@@ -23,6 +23,13 @@ Always rebuild first (`npm run build`) and test the `dist/` folder.
 - BiDi can't open or list `moz-extension://` pages (an extension tab shows up in `browser.pages()` as `about:blank`, so count tabs to see one open), so fill the queue by opening watch URLs in new tabs (Auto-queue). To check popup/options CSS, snapshot their rendered HTML from Chromium (scripts stripped) and serve it next to a copy of `dist/` from a local http server.
 - Theme: prefs `layout.css.prefers-color-scheme.content-override` / `ui.systemUsesDarkTheme`.
 
+## Right-click menus
+
+- **Firefox, headless:** drive Firefox with Marionette alone (Firefox allows one automation session, so not alongside puppeteer's BiDi). Start `firefox.exe --headless --marionette -remote-allow-system-access --no-remote --profile <dir>` with prefs in the profile's `user.js` (`marionette.port`, the mute and `grantByDefault` prefs above). `Addon:Install { path, temporary: true }` installs `dist/` on any Firefox version. A right-click through `WebDriver:PerformActions` (button 2) really opens `#contentAreaContextMenu` even headless. In the chrome context (`Marionette:SetContext`), Cue's items are the visible `menuitem`/`menu` elements whose id contains `queuetube`. Open the "Cue for YouTube" submenu with `menu.openMenu(true)` and click with `popup.activateItem(item)`.
+- **Chromium, headless:** there is no native menu. Fire a click from the service worker with `chrome.contextMenus.onClicked.dispatch(info, { id: tabId })`. This does not grant `activeTab`, so "Queue all YouTube links here" on a non-YouTube page only reaches the selected-text fallback there.
+- **Chromium, which items show:** only a headed browser draws the native menu. Right-click with Playwright, then read and click it through Windows UI Automation (`System.Windows.Automation`, filtering top-level elements by the browser's process ids). CDP's Escape doesn't close a native menu; close the tab instead.
+- Extension pages over Marionette: `WebExtensionPolicy.getByID('queuetube@issac.com').mozExtensionHostname` (chrome context) gives the `moz-extension://` host. Open `src/popup/index.html` in a tab and call `window.wrappedJSObject.browser` there to send Commands or read storage.
+
 ## Gotchas
 
 - Always mute (`--mute-audio`, `media.volume_scale`): the watch page autoplays.

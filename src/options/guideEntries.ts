@@ -35,6 +35,14 @@ export const GUIDE: GuideGroup[] = [
         text: 'Middle-click a YouTube video link, on YouTube or any other site, to queue it without leaving what you are watching.',
       },
       {
+        title: 'Right-click a link',
+        text: 'Right-click a YouTube video link on any site and choose Add to queue, or Play next to put it right after the video that is playing.',
+      },
+      {
+        title: 'Queue a whole page',
+        text: 'Right-click a page, or some selected text, and choose Queue all YouTube links here to queue every video it links to or mentions, in order.',
+      },
+      {
         title: 'Gather open tabs',
         text: "Sweep every open YouTube video tab into the queue and close them: choose Gather open tabs in the panel's ⋮ menu or in the popup.",
         shortcut: 'gather-tabs',
