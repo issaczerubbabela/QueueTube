@@ -4,6 +4,33 @@ How to check Cue on real YouTube in Chromium and Firefox. Every ticket's "Verifi
 
 Always rebuild first (`npm run build`) and test the `dist/` folder.
 
+## Running the scripts
+
+The checks are scripts in `scripts/e2e/`, one per feature, in headless, muted Firefox over Marionette. They need no npm packages, only Firefox and a connection to YouTube.
+
+```bash
+npm run build
+npm run e2e            # every script on this branch
+npm run e2e -- 1.3     # one release: 1.2, 1.3, 1.4 or 1.5
+npm run e2e -- resume  # scripts whose name contains "resume"
+node scripts/e2e/resume-firefox.mjs   # one script on its own
+```
+
+Each script prints `PASS`/`FAIL` lines and an `n/m passed` tally, and exits non-zero on any failure. The runner ends with a summary per script. A full release takes a few minutes per script, since the videos really play.
+
+Settings, as environment variables:
+
+| Variable | Default | |
+|---|---|---|
+| `FIREFOX` | `C:/Program Files/Mozilla Firefox/firefox.exe` (Windows), the usual place elsewhere | Firefox to run |
+| `CUE_DIST` | `<repo>/dist` | the built extension |
+| `CUE_E2E_PROFILES` | `scripts/e2e/.profiles` (git-ignored) | throwaway Firefox profiles |
+| `CUE_E2E_PREFS` | none | extra Firefox prefs as JSON, e.g. `{"network.proxy.type": 0}` |
+
+The shared helpers are in `scripts/e2e/lib.mjs` (YouTube and panel helpers) and `scripts/e2e/ff.mjs` (the Marionette client). A browser restart is checked by quitting Firefox and relaunching it on the same profile (`launch(name, { keepProfile: true })`); prefs in `ff.mjs` keep a temporary add-on's storage across the reinstall.
+
+Pre-roll ads are the usual cause of a timeout: a check that waits for a video to play gives up after 45 seconds. Run the script again.
+
 ## Chromium (Playwright)
 
 - Playwright's Chromium is at `~/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe`. Playwright is not a repo dependency: `npm i playwright-core` in a scratch directory.

@@ -8,7 +8,8 @@
     "dev": "node scripts/build.js",
     "test": "vitest run",
     "package": "npm run build && npx web-ext build -s dist -a builds --overwrite-dest",
-    "package-source": "node scripts/source.js"
+    "package-source": "node scripts/source.js",
+    "e2e": "node scripts/e2e/run.mjs"
   },
   "dependencies": {
     "@fontsource/roboto": "^5.1.0",
