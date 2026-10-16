@@ -9,7 +9,7 @@ let tail: Promise<unknown> = Promise.resolve();
 /** Runs jobs one at a time, in call order. A job must never await another `serial` job. */
 export function serial<T>(job: () => Promise<T>): Promise<T> {
   const run = tail.then(job, job);
-  tail = run.catch((err) => console.error('[QueueTube]', err));
+  tail = run.catch((err) => console.error('[Cue]', err));
   return run;
 }
 
@@ -37,11 +37,11 @@ export async function saveSettings(settings: Settings): Promise<void> {
 
 export interface TabBook {
   playerTabId: number | null;
-  /** Tabs opened while QueueTube was running that have not landed on a page yet. */
+  /** Tabs opened while Cue was running that have not landed on a page yet. */
   fresh: number[];
-  /** Tabs the user opened outside QueueTube on purpose; never auto-queued or gathered. */
+  /** Tabs the user opened outside Cue on purpose; never auto-queued or gathered. */
   free: number[];
-  /** When the browser started (0 if QueueTube was installed mid-session); tabs created right after are session restore. */
+  /** When the browser started (0 if Cue was installed mid-session); tabs created right after are session restore. */
   bootAt: number;
 }
 

@@ -27,7 +27,7 @@ async function ensureContentScript(tabId: number): Promise<void> {
   try {
     await browser.scripting.executeScript({ target: { tabId }, files: ['content/index.js'] });
   } catch (err) {
-    console.warn('[QueueTube] Could not inject content script into tab', tabId, err);
+    console.warn('[Cue] Could not inject content script into tab', tabId, err);
   }
 }
 

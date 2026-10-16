@@ -39,7 +39,7 @@ const PLAYBACK_SETTINGS: { key: BooleanSetting; title: string; detail: string }[
   {
     key: 'lookUpDurations',
     title: 'Show video lengths',
-    detail: "YouTube's title lookup doesn't include length, so QueueTube reads part of each queued video's page (about 0.75 MB, without your cookies). Lengths also fill in as you watch.",
+    detail: "YouTube's title lookup doesn't include length, so Cue reads part of each queued video's page (about 0.75 MB, without your cookies). Lengths also fill in as you watch.",
   },
 ];
 
@@ -123,7 +123,7 @@ export function Options() {
     <>
       <header className="masthead">
         <img src="/icons/icon48.png" alt="" className="logo" />
-        <span className="wordmark">QueueTube</span>
+        <span className="wordmark">Cue</span>
         <span className="version">{browser.runtime.getManifest().version}</span>
       </header>
 
@@ -138,7 +138,7 @@ export function Options() {
         </nav>
 
         <main className="page">
-          <p className="eyebrow">QueueTube</p>
+          <p className="eyebrow">Cue</p>
           <h1>Choose how your queue works</h1>
 
           <section id="queueing">
@@ -176,7 +176,7 @@ export function Options() {
 
           <section id="queue">
             <h2>Your queue</h2>
-            <p className="section-sub">Move your queue in and out of QueueTube as a text file of links</p>
+            <p className="section-sub">Move your queue in and out of Cue as a text file of links</p>
             <div className="setting">
               <span className="setting-label">Export</span>
               <span className="setting-control stacked">

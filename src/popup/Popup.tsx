@@ -61,7 +61,7 @@ export function Popup() {
       <header className="top">
         <img src="/icons/icon48.png" alt="" className="logo" />
         <div className="top-text">
-          <h1>QueueTube</h1>
+          <h1>Cue</h1>
           <p>{[position, remaining].filter(Boolean).join(' · ')}</p>
         </div>
         <button className="icon-btn" onClick={() => browser.runtime.openOptionsPage()} aria-label="Settings" title="Settings">

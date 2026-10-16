@@ -1,5 +1,5 @@
 // YouTube tints the playing row of a playlist with a muted colour taken from the video's artwork.
-// It only exposes that colour when a YouTube playlist is open, so QueueTube derives its own:
+// It only exposes that colour when a YouTube playlist is open, so Cue derives its own:
 // the dominant hue of the thumbnail and how colourful it is. theme.css turns that into the
 // row background and index colour for the light and dark themes.
 import { CSSProperties, useEffect, useState } from 'react';

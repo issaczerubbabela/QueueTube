@@ -76,7 +76,7 @@ Goal: you can queue a video without opening it in a new tab, and YouTube's own "
 
 ## Separate track: store publishing
 
-Publish to the Chrome Web Store and Firefox Add-ons under a new display name, because two Chrome Web Store extensions are already called "QueueTube". The name is the owner's call. The gecko id and repo name stay as they are.
+The extension is renamed **Cue** (store name "Cue for YouTube", short name "Cue"), because two Chrome Web Store extensions are already called "QueueTube". It is already listed on Firefox Add-ons as QueueTube: rename that listing's display name but keep its `queuetube` slug and the gecko id `queuetube@issac.com`, so existing installs keep updating. The repo name and the in-page panel's element id stay as they are. Before publishing to the Chrome Web Store, search both stores directly for "Cue" to rule out a collision.
 
 ## Decisions log (2026-10-17)
 

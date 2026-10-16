@@ -59,7 +59,7 @@ export function Sidebar() {
     : [position, remaining].filter(Boolean).join(' · ');
 
   return (
-    <section className={`panel${collapsed ? ' collapsed' : ''}`} aria-label="QueueTube queue" style={tintStyle(tint)}>
+    <section className={`panel${collapsed ? ' collapsed' : ''}`} aria-label="Cue queue panel" style={tintStyle(tint)}>
       <header className="panel-header">
         <div className="header-top">
           <div className="heading">

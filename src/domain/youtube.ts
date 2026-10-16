@@ -1,4 +1,4 @@
-// What counts as "YouTube" for QueueTube. Subdomains such as music.youtube.com and
+// What counts as "YouTube" for Cue. Subdomains such as music.youtube.com and
 // studio.youtube.com are deliberately excluded: they are separate products and must never
 // be queued, gathered, or turned into the player tab.
 

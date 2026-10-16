@@ -1,5 +1,5 @@
-/* QueueTube design system. Every value here was measured from YouTube's own UI (watch page,
-   playlist panel, menus and settings pages) so QueueTube reads as part of the site.
+/* Cue design system. Every value here was measured from YouTube's own UI (watch page,
+   playlist panel, menus and settings pages) so Cue reads as part of the site.
    Tokens live on :root (extension pages) and :host (the panel inside YouTube's page).
    Dark is the default; light comes from prefers-color-scheme or the host's data-theme. */
 

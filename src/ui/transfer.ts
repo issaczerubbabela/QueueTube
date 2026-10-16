@@ -1,4 +1,4 @@
-// Moving queues in and out of QueueTube as plain text: one "title<TAB>url" line per entry.
+// Moving queues in and out of Cue as plain text: one "title<TAB>url" line per entry.
 import type { Entry } from '../domain/queue';
 import { findVideoIds, watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
@@ -8,7 +8,7 @@ export function exportQueue(entries: Entry[]): void {
   const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `queuetube-${new Date().toISOString().slice(0, 10)}.txt`;
+  link.download = `cue-${new Date().toISOString().slice(0, 10)}.txt`;
   link.style.display = 'none';
   document.body.append(link);
   link.click();

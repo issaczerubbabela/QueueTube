@@ -1,4 +1,4 @@
-# QueueTube Architecture
+# Cue Architecture
 
 Vocabulary (player tab, entry, current entry, fresh tab, auto-queue, gather) is defined in [`CONTEXT.md`](../CONTEXT.md). Key decisions are in [`docs/adr/`](adr/).
 
