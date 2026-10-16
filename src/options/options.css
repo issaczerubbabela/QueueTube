@@ -1,136 +1,211 @@
-@import '../ui/glass.css';
+@import '@fontsource/roboto/latin-400.css';
+@import '@fontsource/roboto/latin-500.css';
+@import '@fontsource/roboto/latin-700.css';
+@import '../ui/theme.css';
 
+/* Mirrors YouTube's settings pages (youtube.com/account_*): 56px masthead, 240px nav,
+   content from 272px with a 24/32 headline and 20/28 section titles over label/control rows. */
 html {
-  min-height: 100%;
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(255, 69, 58, 0.18), transparent 60%),
-    radial-gradient(900px 500px at 100% 10%, rgba(100, 120, 255, 0.14), transparent 60%),
-    #111113;
-}
-@media (prefers-color-scheme: light) {
-  html {
-    background:
-      radial-gradient(1200px 600px at 10% -10%, rgba(255, 69, 58, 0.12), transparent 60%),
-      radial-gradient(900px 500px at 100% 10%, rgba(100, 120, 255, 0.1), transparent 60%),
-      #f2f2f6;
-  }
+  background: var(--bg);
+  scroll-padding-top: 72px;
 }
 
 body {
   margin: 0;
-  font: 400 14px/1.45 var(--font);
+  font: 400 14px/20px var(--font);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
 
-.page {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 40px 16px 64px;
-}
+/* ── Masthead ─────────────────────────────────────────────────────────────── */
 
 .masthead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 28px;
+  gap: 4px;
+  height: 56px;
+  padding: 0 16px 0 24px;
+  background: var(--bg);
 }
 .masthead .logo {
-  width: 52px;
-  height: 52px;
-  border-radius: 13px;
-  box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.5);
+  width: 28px;
+  height: 28px;
 }
-.masthead div {
-  flex: 1;
-}
-.masthead h1 {
-  margin: 0;
-  font-size: 26px;
+.wordmark {
+  margin-left: 4px;
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: -0.025em;
-}
-.masthead p {
-  margin: 2px 0 0;
-  color: var(--text-2);
+  letter-spacing: -0.5px;
 }
 .version {
   align-self: flex-start;
-  padding: 3px 9px;
-  border-radius: var(--r-pill);
-  font-size: 12px;
-  color: var(--text-2);
-  background: var(--fill);
-  font-variant-numeric: tabular-nums;
-}
-
-.group-label {
-  margin: 26px 0 8px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin-top: 12px;
+  font-size: 10px;
+  line-height: 14px;
   color: var(--text-2);
 }
 
-.group {
-  border-radius: var(--r-lg);
-  overflow: hidden;
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+
+.layout {
+  display: flex;
 }
 
-.cell {
+.nav {
+  position: sticky;
+  top: 56px;
+  align-self: flex-start;
+  flex-shrink: 0;
+  width: 240px;
+  padding: 18px 12px;
+}
+.nav h2 {
+  margin: 0;
+  padding: 0 0 20px 12px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 26px;
+  color: var(--text-2);
+}
+.nav-item {
   display: flex;
   align-items: center;
-  gap: 16px;
-  min-height: 52px;
-  padding: 12px 16px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text);
+  text-decoration: none;
 }
-.cell + .cell {
-  border-top: 1px solid var(--separator);
+.nav-item:hover {
+  background: var(--hover);
 }
-label.cell {
-  cursor: pointer;
+.nav-item[aria-current='true'] {
+  font-weight: 500;
+  background: var(--tonal);
 }
-label.cell:hover {
-  background: var(--fill);
+.nav-item[aria-current='true']:hover {
+  background: var(--tonal-hover);
 }
-.cell-text {
-  display: flex;
+
+.page {
   flex: 1;
-  flex-direction: column;
-  gap: 2px;
   min-width: 0;
+  max-width: 1000px;
+  padding: 26px 32px 64px;
 }
-.cell > :first-child {
-  flex: 1;
+
+.eyebrow {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
 }
-.unset {
-  font-size: 12.5px;
+.page h1 {
+  margin: 40px 0 0;
+  padding-bottom: 40px;
+  border-bottom: 1px solid var(--separator);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+}
+
+section {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--separator);
+}
+section:last-child {
+  border-bottom: 0;
+}
+section h2 {
+  margin: 0;
+  padding: 24px 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+.section-sub {
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 18px;
   color: var(--text-2);
 }
-.cell-title {
+
+/* Label column and control column, as in "Info cards  ☑ Show in-video info cards". */
+.setting {
+  display: grid;
+  grid-template-columns: 185px minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: start;
+  padding: 10px 0;
+}
+.setting-label {
   font-size: 14px;
   font-weight: 500;
+  line-height: 20px;
 }
-.cell-detail {
-  font-size: 12.5px;
+.setting-control {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  max-width: 560px;
+  font-size: 14px;
+  line-height: 20px;
+}
+label.setting-control {
+  cursor: pointer;
+}
+.setting-control.stacked {
+  flex-direction: column;
+  gap: 0;
+}
+
+.link {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  color: var(--link);
+  text-align: left;
+}
+.link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.link:disabled {
+  color: var(--text-2);
+  opacity: 0.6;
+}
+.muted {
   color: var(--text-2);
 }
 
 kbd {
-  padding: 3px 8px;
-  border-radius: 6px;
-  font: 600 12px/1.4 ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
-  background: var(--fill-hover);
-  box-shadow: inset 0 -1px 0 var(--separator), inset 0 0 0 0.5px var(--glass-edge);
-}
-
-.btn.danger {
-  color: var(--accent);
+  padding: 0 8px;
+  border-radius: 8px;
+  font: 500 14px/28px var(--font);
+  background: var(--tonal);
 }
 
 .notice {
-  margin: 12px 16px 0;
-  font-size: 13px;
+  margin: 8px 0 0 201px;
   color: var(--text-2);
+}
+
+@media (max-width: 720px) {
+  .nav {
+    display: none;
+  }
+  .page {
+    padding: 16px;
+  }
+  .setting {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .notice {
+    margin-left: 0;
+  }
 }

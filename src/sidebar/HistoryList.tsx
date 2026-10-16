@@ -1,8 +1,9 @@
-import React from 'react';
-import { History, ListPlus, RotateCcw } from 'lucide-react';
-import type { Queue } from '../domain/queue';
+import React, { useState } from 'react';
+import { EllipsisVertical, ExternalLink, History, Link, ListPlus, RotateCcw } from 'lucide-react';
+import type { HistoryItem, Queue } from '../domain/queue';
+import { watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
-import { Thumb, Title } from '../ui/components';
+import { Menu, Thumb, Title, useMenu } from '../ui/components';
 
 function playedAgo(timestamp: number): string {
   const minutes = Math.round((Date.now() - timestamp) / 60000);
@@ -14,6 +15,9 @@ function playedAgo(timestamp: number): string {
 }
 
 export function HistoryList({ queue }: { queue: Queue }) {
+  const menu = useMenu();
+  const [menuItem, setMenuItem] = useState<HistoryItem | null>(null);
+
   if (queue.history.length === 0) {
     return (
       <div className="empty">
@@ -41,7 +45,7 @@ export function HistoryList({ queue }: { queue: Queue }) {
             }}
           >
             <span className="lead" aria-hidden="true" />
-            <Thumb video={item} width={92} />
+            <Thumb video={item} width={100} />
             <span className="meta">
               <Title video={item} className="title" />
               <span className="channel">
@@ -52,35 +56,43 @@ export function HistoryList({ queue }: { queue: Queue }) {
             <span className="row-actions">
               <button
                 className="icon-btn"
-                aria-label={`Queue ${item.title || 'video'} again`}
-                title="Add to queue"
+                aria-label={`More actions for ${item.title || 'video'}`}
+                aria-haspopup="menu"
+                aria-expanded={menuItem === item && menu.anchor !== null}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  send({ type: 'queue/add', videoIds: [item.videoId] });
+                  setMenuItem(item);
+                  menu.toggle(e);
                 }}
               >
-                <ListPlus />
-              </button>
-              <button
-                className="icon-btn"
-                aria-label={`Watch ${item.title || 'video'} again`}
-                title="Watch again"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  send({ type: 'play/video', videoId: item.videoId });
-                }}
-              >
-                <RotateCcw />
+                <EllipsisVertical />
               </button>
             </span>
           </li>
         ))}
       </ol>
       <div className="list-footer">
-        <button className="btn subtle" onClick={() => send({ type: 'history/clear' })}>
+        <button className="btn text" onClick={() => send({ type: 'history/clear' })}>
           Clear history
         </button>
       </div>
+      {menu.anchor && menuItem && (
+        <Menu
+          anchor={menu.anchor}
+          label="Video actions"
+          onClose={menu.close}
+          items={[
+            { label: 'Watch again', icon: <RotateCcw />, onSelect: () => send({ type: 'play/video', videoId: menuItem.videoId }) },
+            { label: 'Add to queue', icon: <ListPlus />, onSelect: () => send({ type: 'queue/add', videoIds: [menuItem.videoId] }) },
+            'separator',
+            {
+              label: 'Open in new tab',
+              icon: <ExternalLink />,
+              onSelect: () => send({ type: 'tabs/openFree', url: watchUrl(menuItem.videoId) }),
+            },
+            { label: 'Copy link', icon: <Link />, onSelect: () => navigator.clipboard.writeText(watchUrl(menuItem.videoId)) },
+          ]}
+        />
+      )}
     </>
   );
 }

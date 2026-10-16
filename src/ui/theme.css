@@ -1,0 +1,418 @@
+/* QueueTube design system. Every value here was measured from YouTube's own UI (watch page,
+   playlist panel, menus and settings pages) so QueueTube reads as part of the site.
+   Tokens live on :root (extension pages) and :host (the panel inside YouTube's page).
+   Dark is the default; light comes from prefers-color-scheme or the host's data-theme. */
+
+:root,
+:host {
+  --font: Roboto, Arial, sans-serif;
+
+  --bg: #0f0f0f;
+  --raised: #212121;
+  --menu: #282828;
+  --text: #f1f1f1;
+  --text-2: #aaaaaa;
+  --outline: rgba(255, 255, 255, 0.2);
+  --separator: rgba(255, 255, 255, 0.2);
+  --hover: rgba(255, 255, 255, 0.1);
+  --press: rgba(255, 255, 255, 0.2);
+  --tonal: rgba(255, 255, 255, 0.1);
+  --tonal-hover: rgba(255, 255, 255, 0.2);
+  --filled: #f1f1f1;
+  --on-filled: #0f0f0f;
+  --link: #3ea6ff;
+  --danger: #ff4e45;
+  --snackbar: #f1f1f1;
+  --on-snackbar: #0f0f0f;
+  --snackbar-action: #065fd4;
+  --menu-shadow: 0 4px 32px rgba(0, 0, 0, 0.1);
+  --scrollbar: #aaaaaa;
+
+  /* The playing row is tinted from its thumbnail, as in YouTube's playlist panel: these are the
+     saturation caps and lightness YouTube uses. The hue and saturation (--tint-h / --tint-s) are
+     set from script on the panel, so the colour itself is assembled where it is used. */
+  --current-s: 36%;
+  --current-l: 15%;
+  --current-text-s: 30%;
+  --current-text-l: 72%;
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --raised: #ffffff;
+    --menu: #ffffff;
+    --text: #0f0f0f;
+    --text-2: #606060;
+    --outline: rgba(0, 0, 0, 0.2);
+    --separator: rgba(0, 0, 0, 0.1);
+    --hover: rgba(0, 0, 0, 0.05);
+    --press: rgba(0, 0, 0, 0.1);
+    --tonal: rgba(0, 0, 0, 0.05);
+    --tonal-hover: rgba(0, 0, 0, 0.1);
+    --filled: #0f0f0f;
+    --on-filled: #ffffff;
+    --link: #065fd4;
+    --danger: #cc0000;
+    --snackbar: #0f0f0f;
+    --on-snackbar: #f1f1f1;
+    --snackbar-action: #3ea6ff;
+    --scrollbar: #606060;
+    --current-s: 23%;
+    --current-l: 89%;
+    --current-text-s: 21%;
+    --current-text-l: 41%;
+    color-scheme: light;
+  }
+}
+
+:host([data-theme='light']) {
+  --bg: #ffffff;
+  --raised: #ffffff;
+  --menu: #ffffff;
+  --text: #0f0f0f;
+  --text-2: #606060;
+  --outline: rgba(0, 0, 0, 0.2);
+  --separator: rgba(0, 0, 0, 0.1);
+  --hover: rgba(0, 0, 0, 0.05);
+  --press: rgba(0, 0, 0, 0.1);
+  --tonal: rgba(0, 0, 0, 0.05);
+  --tonal-hover: rgba(0, 0, 0, 0.1);
+  --filled: #0f0f0f;
+  --on-filled: #ffffff;
+  --link: #065fd4;
+  --danger: #cc0000;
+  --snackbar: #0f0f0f;
+  --on-snackbar: #f1f1f1;
+  --snackbar-action: #3ea6ff;
+  --scrollbar: #606060;
+  --current-s: 23%;
+  --current-l: 89%;
+  --current-text-s: 21%;
+  --current-text-l: 41%;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────────── */
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button:disabled {
+  cursor: default;
+}
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* YouTube icons are 24px outlines inside 40px round buttons. */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--text);
+}
+.icon-btn svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.5;
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+.icon-btn:active:not(:disabled),
+.icon-btn[aria-haspopup][aria-expanded='true'] {
+  background: var(--press);
+}
+.icon-btn:disabled {
+  opacity: 0.3;
+}
+
+/* Pill buttons: tonal by default, filled for the one primary action, as on the watch page. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 36px;
+  white-space: nowrap;
+  background: var(--tonal);
+}
+.btn svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.5;
+  margin-left: -6px;
+}
+.btn:hover:not(:disabled) {
+  background: var(--tonal-hover);
+}
+.btn:disabled {
+  opacity: 0.4;
+}
+.btn.primary {
+  background: var(--filled);
+  color: var(--on-filled);
+}
+.btn.primary:hover:not(:disabled) {
+  background: var(--filled);
+  opacity: 0.9;
+}
+.btn.text {
+  background: transparent;
+  color: var(--link);
+}
+.btn.text:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--link) 15%, transparent);
+}
+
+/* Filter chips, like the row above YouTube's recommendations. */
+.chips {
+  display: flex;
+  gap: 8px;
+}
+.chip {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 32px;
+  white-space: nowrap;
+  background: var(--tonal);
+}
+.chip:hover {
+  background: var(--tonal-hover);
+}
+.chip[aria-selected='true'] {
+  background: var(--filled);
+  color: var(--on-filled);
+}
+
+/* YouTube's toggle switch (thin bar, round knob), built on a checkbox for free accessibility. */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.switch::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 0;
+  width: 36px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--text-2);
+  opacity: 0.5;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f1f1f1;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
+  transition: transform 80ms linear;
+}
+.switch:checked::before {
+  background: var(--link);
+}
+.switch:checked::after {
+  background: var(--link);
+  transform: translateX(16px);
+}
+
+/* YouTube's checkbox: an outlined square that fills blue when checked. */
+.checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  border: 2px solid var(--text-2);
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+}
+.checkbox:checked {
+  border-color: var(--link);
+  background: var(--link);
+}
+.checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 5px;
+  height: 10px;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* ── Media ────────────────────────────────────────────────────────────────── */
+
+.thumb {
+  position: relative;
+  flex-shrink: 0;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--tonal);
+}
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.thumb .duration {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+.skeleton {
+  display: inline-block;
+  height: 14px;
+  width: 70%;
+  border-radius: 4px;
+  background: var(--tonal);
+  vertical-align: middle;
+}
+
+/* ── Menu & snackbar ──────────────────────────────────────────────────────── */
+
+.menu {
+  position: fixed;
+  z-index: 2202;
+  min-width: 180px;
+  padding: 8px 0;
+  border-radius: 12px;
+  background: var(--menu);
+  box-shadow: var(--menu-shadow);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px 0 16px;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--text);
+}
+.menu-item svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.5;
+  flex-shrink: 0;
+}
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  background: var(--hover);
+  outline: none;
+}
+.menu-item:disabled {
+  opacity: 0.4;
+}
+.menu-item.danger {
+  color: var(--danger);
+}
+.menu-sep {
+  height: 1px;
+  margin: 8px 0;
+  background: var(--separator);
+}
+
+/* Inverted like YouTube's own snackbar. */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 6px 8px 6px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--on-snackbar);
+  background: var(--snackbar);
+}
+.toast .msg {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toast .btn {
+  background: transparent;
+  color: var(--snackbar-action);
+}
+.toast .btn:hover {
+  background: color-mix(in srgb, var(--snackbar-action) 15%, transparent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.001ms !important;
+  }
+}

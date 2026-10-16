@@ -11,7 +11,7 @@ Instead of allowing dozens of YouTube tabs to accumulate across your browser, Qu
 - 🎯 **One player tab**: QueueTube plays everything in a single YouTube tab.
 - ⚡ **Auto-queue**: a YouTube video you open in a *new* tab joins the queue and the tab closes. Tabs you're already browsing in, YouTube Music, and YouTube Studio are never touched.
 - 📦 **Gather tabs**: sweep every open YouTube video tab into the queue at once.
-- 🧊 **Liquid-glass queue panel** inside YouTube's sidebar, following YouTube's light/dark theme, with now-playing artwork, durations, and time remaining.
+- 🎨 **Native-feeling queue panel** inside YouTube's sidebar, styled like YouTube's own playlist panel and following its light/dark theme, with durations and time remaining.
 - 🖐️ **Reorder** by drag and drop, by keyboard (Alt+↑/↓), or with *Play next* / *Move to top*.
 - ↩️ **Undo** for removing a video or clearing the queue.
 - 🔁 **Auto-advance** to the next video when one ends (ads are ignored).

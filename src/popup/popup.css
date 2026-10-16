@@ -1,269 +1,201 @@
-@import '../ui/glass.css';
+@import '@fontsource/roboto/latin-400.css';
+@import '@fontsource/roboto/latin-500.css';
+@import '@fontsource/roboto/latin-700.css';
+@import '../ui/theme.css';
 
+/* The popup is styled as one of YouTube's dropdown menus (ytd-multi-page-menu-renderer):
+   300px wide, menu surface, 40px rows with a 24px icon at 16px and text at 56px. */
 html,
 body {
   margin: 0;
-  background: #161618;
-}
-@media (prefers-color-scheme: light) {
-  html,
-  body {
-    background: #f2f2f6;
-  }
+  background: var(--menu);
 }
 
 body {
-  width: 340px;
-  font: 400 13px/1.4 var(--font);
+  width: 300px;
+  font: 400 14px/20px var(--font);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
 
 .popup {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  padding: 8px 0;
 }
 .popup.loading {
-  height: 360px;
+  height: 420px;
 }
+
+hr {
+  height: 1px;
+  margin: 8px 0;
+  border: 0;
+  background: var(--separator);
+}
+
+/* ── Header (like the account header at the top of YouTube's menu) ─────────── */
 
 .top {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 2px;
+  gap: 16px;
+  padding: 8px 4px 8px 16px;
 }
 .logo {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-}
-.top h1 {
-  flex: 1;
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-/* ── Now playing card ─────────────────────────────────────────────────────── */
-
-.now {
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  isolation: isolate;
-}
-.now-body {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px;
-}
-.now-track,
-.now-empty {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 50px;
-}
-.now-empty > svg {
-  width: 26px;
-  height: 26px;
-  margin: 0 4px;
-  color: var(--text-2);
-  stroke-width: 1.6;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
 }
-.now-empty p {
-  margin: 0;
-}
-.now-meta {
-  display: flex;
+.top-text {
   flex: 1;
   min-width: 0;
-  flex-direction: column;
-  gap: 2px;
 }
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent);
+.top h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 22px;
 }
-.eyebrow .eq {
-  width: 11px;
-  height: 9px;
-}
-.now-title {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 18px;
-}
-.now-channel {
-  font-size: 12px;
+.top p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
   color: var(--text-2);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.transport {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-}
-.transport .icon-btn {
-  width: 36px;
-  height: 36px;
-  color: var(--text);
-}
-.transport .icon-btn svg {
-  width: 19px;
-  height: 19px;
-  fill: currentColor;
-}
-.transport .btn {
-  min-width: 150px;
-}
+/* ── Videos ───────────────────────────────────────────────────────────────── */
 
-/* ── Claim this tab ───────────────────────────────────────────────────────── */
-
-.claim {
+.video {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: var(--r-md);
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 16px;
   text-align: left;
-  background: var(--fill);
-  box-shadow: inset 0 0 0 0.5px var(--glass-edge);
-  transition: background var(--t-fast) ease;
 }
-.claim:hover {
-  background: var(--fill-hover);
+.video:hover {
+  background: var(--hover);
 }
-.claim > svg {
-  width: 18px;
-  height: 18px;
-  color: var(--accent);
-  flex-shrink: 0;
+.video:focus-visible {
+  outline-offset: -2px;
 }
-.claim strong,
-.toggle-row strong {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-}
-.claim span span,
-.toggle-row span span {
-  display: block;
-  font-size: 11.5px;
-  color: var(--text-2);
-}
-
-/* ── Up next ──────────────────────────────────────────────────────────────── */
-
-.section-head {
+.video-meta {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 0 4px 4px;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
 }
-.section-head h2 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-}
-.section-head span {
-  font-size: 11.5px;
+.label {
+  font-size: 12px;
+  line-height: 18px;
   color: var(--text-2);
-  font-variant-numeric: tabular-nums;
+}
+.video-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.video-channel {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.video.small {
+  padding: 4px 16px;
+}
+.video.small .video-title {
+  -webkit-line-clamp: 1;
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.video.small .thumb .duration {
+  right: 2px;
+  bottom: 2px;
+  padding: 0 3px;
+  font-size: 11px;
+  line-height: 16px;
+}
+.placeholder {
+  margin: 0;
+  padding: 8px 16px;
+  color: var(--text-2);
+}
+
+.upnext h2 {
+  margin: 0;
+  padding: 8px 16px 4px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
 }
 .upnext ol {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.mini {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 4px;
-  border-radius: var(--r-sm);
-  text-align: left;
-  transition: background var(--t-fast) ease;
+.upnext .count {
+  margin-left: 4px;
+  font-weight: 400;
+  color: var(--text-2);
 }
-.mini:hover {
-  background: var(--fill);
-}
-.mini-meta {
+
+/* ── Menu rows ────────────────────────────────────────────────────────────── */
+
+.items {
   display: flex;
-  flex: 1;
-  min-width: 0;
   flex-direction: column;
 }
-.mini-title {
-  font-size: 12.5px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.mini-channel {
-  font-size: 11.5px;
-  color: var(--text-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.mini .thumb .duration {
-  font-size: 9.5px;
-  line-height: 12px;
-  right: 2px;
-  bottom: 2px;
-}
-.hint,
-.more {
-  margin: 0;
-  padding: 2px 4px;
-  font-size: 12px;
-  color: var(--text-2);
-}
-
-/* ── Actions & toggle ─────────────────────────────────────────────────────── */
-
-.actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.notice {
-  margin: -2px 0 0;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-2);
-}
-.toggle-row {
+.item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: var(--r-md);
-  background: var(--fill);
+  gap: 16px;
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
   cursor: pointer;
+}
+.item:hover:not(:disabled) {
+  background: var(--hover);
+}
+.item:focus-visible {
+  outline-offset: -2px;
+}
+.item:disabled {
+  opacity: 0.4;
+}
+.item > svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.5;
+  flex-shrink: 0;
+}
+.item-text {
+  flex: 1;
+}
+.item kbd {
+  margin-left: auto;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.notice {
+  margin: 4px 16px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-2);
 }

@@ -17,7 +17,7 @@ src/
 ├── content/           Runs on www.youtube.com; mounts the panel in the player tab only
 ├── sidebar/           The in-page queue panel (Shadow DOM, styles inlined)
 ├── popup/ options/    Extension pages
-└── ui/                Design system (glass.css) and shared components
+└── ui/                Design system (theme.css) and shared components
 ```
 
 ## Data flow

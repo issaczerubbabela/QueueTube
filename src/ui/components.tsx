@@ -26,14 +26,6 @@ export function Title({ video, className }: { video: Video; className?: string }
   );
 }
 
-export const Equalizer = () => (
-  <span className="eq" role="img" aria-label="Now playing">
-    <i />
-    <i />
-    <i />
-  </span>
-);
-
 export interface MenuItem {
   label: string;
   icon: React.ReactNode;
@@ -110,8 +102,8 @@ export function Menu({
     buttons[next]?.focus();
   };
 
-  // Glass surfaces (backdrop-filter) become the containing block for fixed-position children,
-  // which would offset and clip the menu, so it renders at the root of the document or shadow tree.
+  // Render at the root of the document or shadow tree so no ancestor's overflow, transform or
+  // filter can clip or offset the fixed-position menu.
   const root = anchor.getRootNode();
   const layer = root instanceof ShadowRoot ? root : document.body;
 

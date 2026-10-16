@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowUpToLine, Ellipsis, ExternalLink, Link, ListStart, Play, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpToLine, EllipsisVertical, ExternalLink, Link, ListStart, Play, X } from 'lucide-react';
 import * as Q from '../domain/queue';
 import { watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
-import { Equalizer, Menu, Thumb, Title, useMenu } from '../ui/components';
+import { Menu, Thumb, Title, useMenu } from '../ui/components';
 
 interface Props {
   queue: Q.Queue;
@@ -32,7 +32,6 @@ export function QueueList({ queue, onRemoved }: Props) {
 
   const entries = pending ?? queue.entries;
   const currentIdx = entries.findIndex((e) => e.id === queue.currentId);
-  const playing = Q.isCurrentPlaying(queue);
 
   // Keep keyboard focus on a row after it moves.
   useEffect(() => {
@@ -127,7 +126,6 @@ export function QueueList({ queue, onRemoved }: Props) {
       }}>
         {entries.map((entry, index) => {
           const isCurrent = entry.id === queue.currentId;
-          const watched = currentIdx >= 0 && index < currentIdx;
           const dropClass =
             drop && dragging !== null && drop.index === index && targetIndex(dragging, drop) !== dragging
               ? drop.after
@@ -141,7 +139,7 @@ export function QueueList({ queue, onRemoved }: Props) {
               tabIndex={0}
               aria-current={isCurrent ? 'true' : undefined}
               aria-describedby="qt-reorder-hint"
-              className={`row${isCurrent ? ' current' : ''}${watched ? ' watched' : ''}${dragging === index ? ' dragging' : ''}${dropClass}`}
+              className={`row${isCurrent ? ' current' : ''}${dragging === index ? ' dragging' : ''}${dropClass}`}
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.effectAllowed = 'move';
@@ -169,30 +167,18 @@ export function QueueList({ queue, onRemoved }: Props) {
               onClick={() => send({ type: 'play/entry', entryId: entry.id })}
               onKeyDown={(e) => onKeyDown(e, entry, index)}
             >
-              <span className="lead" aria-hidden={!(isCurrent && playing)}>
-                {isCurrent && playing ? <Equalizer /> : <span className="index">{index + 1}</span>}
+              <span className="lead" aria-hidden="true">
+                {isCurrent ? <Play className="current-mark" /> : <span className="index">{index + 1}</span>}
                 <svg className="grip" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M4 9h16M4 15h16" />
                 </svg>
               </span>
-              <Thumb video={entry} width={92} />
+              <Thumb video={entry} width={100} />
               <span className="meta">
                 <Title video={entry} className="title" />
                 <span className="channel">{entry.channel || ' '}</span>
               </span>
               <span className="row-actions">
-                <button
-                  className="icon-btn"
-                  aria-label={`Remove ${entry.title || 'video'}`}
-                  title="Remove"
-                  tabIndex={-1}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    remove(entry);
-                  }}
-                >
-                  <X />
-                </button>
                 <button
                   className="icon-btn"
                   aria-label={`More actions for ${entry.title || 'video'}`}
@@ -203,7 +189,7 @@ export function QueueList({ queue, onRemoved }: Props) {
                     menu.toggle(e);
                   }}
                 >
-                  <Ellipsis />
+                  <EllipsisVertical />
                 </button>
               </span>
             </li>

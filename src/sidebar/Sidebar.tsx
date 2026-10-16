@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
-  Ellipsis,
+  EllipsisVertical,
   Layers,
   ListPlus,
   ListVideo,
@@ -14,10 +14,11 @@ import {
   Download,
 } from 'lucide-react';
 import * as Q from '../domain/queue';
-import { playlistUrl, thumbnailUrl } from '../domain/youtube';
+import { playlistUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
-import { Equalizer, Menu, Title, Toast, useMenu, useToast } from '../ui/components';
+import { Menu, Title, Toast, useMenu, useToast } from '../ui/components';
+import { tintStyle, useTint } from '../ui/tint';
 import { exportQueue, formatRemaining, importQueue, pluralVideos } from '../ui/transfer';
 import { HistoryList } from './HistoryList';
 import { QueueList } from './QueueList';
@@ -30,18 +31,15 @@ export function Sidebar() {
   const menu = useMenu();
   const { toast, show, dismiss } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
+  const tint = useTint(ready ? Q.currentEntry(queue)?.videoId : null);
 
   if (!ready) return null;
 
   const index = Q.currentIndex(queue);
-  const current = Q.currentEntry(queue);
   const next = Q.nextEntry(queue);
-  const playing = Q.isCurrentPlaying(queue);
   const total = queue.entries.length;
   const remaining = formatRemaining(Q.remainingSeconds(queue));
-  const position = index >= 0 ? `${index + 1} of ${total}` : pluralVideos(total);
-  const art = queue.nowPlaying ?? current?.videoId ?? next?.videoId;
-  const ambient = art ? <div className="ambient" style={{ backgroundImage: `url(${thumbnailUrl(art)})` }} /> : null;
+  const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
 
   const setCollapsed = (sidebarCollapsed: boolean) => send({ type: 'settings/update', patch: { sidebarCollapsed } });
 
@@ -53,53 +51,48 @@ export function Sidebar() {
     show({ message: gathered ? `Gathered ${gathered} ${gathered === 1 ? 'tab' : 'tabs'}` : 'No other YouTube video tabs open' });
   };
 
-  if (settings.sidebarCollapsed) {
-    return (
-      <section className="panel glass collapsed" aria-label="QueueTube queue">
-        {ambient}
-        <button className="collapsed-main" onClick={() => setCollapsed(false)} aria-label="Expand queue">
-          <span className="collapsed-icon">{playing ? <Equalizer /> : <ListVideo aria-hidden="true" />}</span>
-          <span className="collapsed-text">
-            {next ? (
-              <>
-                <span className="eyebrow">Up next</span>
-                <Title video={next} className="collapsed-title" />
-              </>
-            ) : (
-              <span className="collapsed-title">{total ? 'End of queue' : 'Queue is empty'}</span>
-            )}
-          </span>
-          {total > 0 && <span className="pill-count">{position}</span>}
-        </button>
-        <button
-          className="icon-btn"
-          disabled={!next}
-          onClick={() => send({ type: 'play/next' })}
-          aria-label="Play next"
-          title="Play next (Alt+Shift+.)"
-        >
-          <SkipForward />
-        </button>
-        <button className="icon-btn" onClick={() => setCollapsed(false)} aria-label="Expand queue" title="Expand (Alt+Shift+L)">
-          <ChevronDown />
-        </button>
-      </section>
-    );
-  }
+  const collapsed = settings.sidebarCollapsed;
+  const subtitle = collapsed
+    ? next
+      ? null
+      : position
+    : [position, remaining].filter(Boolean).join(' · ');
 
   return (
-    <section className="panel glass" aria-label="QueueTube queue">
+    <section className={`panel${collapsed ? ' collapsed' : ''}`} aria-label="QueueTube queue" style={tintStyle(tint)}>
       <header className="panel-header">
-        {ambient}
-        <div className="header-row">
+        <div className="header-top">
           <div className="heading">
-            <h2>Up next</h2>
-            <p className="subtitle">
-              {total === 0 ? 'Nothing queued' : position}
-              {remaining && <span> · {remaining}</span>}
-            </p>
+            <h2>Global Queue</h2>
+            {subtitle !== null ? (
+              <p className="subtitle">{subtitle}</p>
+            ) : (
+              <p className="subtitle">
+                Next: <Title video={next!} className="next-title" />
+              </p>
+            )}
           </div>
+          <button
+            className="icon-btn"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? 'Expand queue' : 'Collapse queue'}
+            aria-expanded={!collapsed}
+            title={`${collapsed ? 'Expand' : 'Collapse'} (Alt+Shift+L)`}
+          >
+            {collapsed ? <ChevronDown /> : <ChevronUp />}
+          </button>
+        </div>
+        {!collapsed && (
           <div className="header-actions">
+            <div className="chips" role="tablist" aria-label="Queue view">
+              <button className="chip" role="tab" aria-selected={tab === 'queue'} onClick={() => setTab('queue')}>
+                Queue
+              </button>
+              <button className="chip" role="tab" aria-selected={tab === 'history'} onClick={() => setTab('history')}>
+                History
+              </button>
+            </div>
+            <span className="spacer" />
             <button
               className="icon-btn"
               disabled={!Q.canGoBack(queue, settings)}
@@ -125,24 +118,13 @@ export function Sidebar() {
               aria-haspopup="menu"
               aria-expanded={menu.anchor !== null}
             >
-              <Ellipsis />
-            </button>
-            <button className="icon-btn" onClick={() => setCollapsed(true)} aria-label="Collapse queue" title="Collapse (Alt+Shift+L)">
-              <ChevronUp />
+              <EllipsisVertical />
             </button>
           </div>
-        </div>
-
-        <div className="segmented" role="tablist" aria-label="Queue view">
-          <button role="tab" aria-selected={tab === 'queue'} onClick={() => setTab('queue')}>
-            Queue<span className="count">{total}</span>
-          </button>
-          <button role="tab" aria-selected={tab === 'history'} onClick={() => setTab('history')}>
-            History<span className="count">{queue.history.length}</span>
-          </button>
-        </div>
+        )}
       </header>
 
+      {!collapsed && (
       <div className="panel-body" role="tabpanel">
         {tab === 'queue' ? (
           total === 0 ? (
@@ -164,6 +146,7 @@ export function Sidebar() {
           <HistoryList queue={queue} />
         )}
       </div>
+      )}
 
       <Toast toast={toast} onDismiss={dismiss} />
 

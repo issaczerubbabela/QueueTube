@@ -1,15 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { ExternalLink, Layers, MonitorPlay, PanelRightClose, PanelRightOpen, Settings as SettingsIcon, SkipBack, SkipForward } from 'lucide-react';
+import {
+  Layers,
+  ListVideo,
+  MonitorPlay,
+  PanelRightClose,
+  PanelRightOpen,
+  Settings as SettingsIcon,
+  SkipBack,
+  SkipForward,
+  SquarePlay,
+} from 'lucide-react';
 import browser from 'webextension-polyfill';
 import * as Q from '../domain/queue';
-import { thumbnailUrl } from '../domain/youtube';
 import { Status, send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
-import { Equalizer, Thumb, Title } from '../ui/components';
+import { Thumb, Title } from '../ui/components';
 import { formatRemaining, pluralVideos } from '../ui/transfer';
 
-const UP_NEXT_LIMIT = 4;
+// Browsers cap extension popups at 600px tall; this keeps the popup inside that.
+const UP_NEXT_LIMIT = 2;
 
+/** Laid out like YouTube's own dropdown menus: a header, then 40px icon rows between dividers. */
 export function Popup() {
   const { ready, queue, settings } = useExtensionState();
   const [status, setStatus] = useState<Status | null>(null);
@@ -22,17 +33,17 @@ export function Popup() {
 
   if (!ready || !status) return <div className="popup loading" />;
 
-  const current = Q.currentEntry(queue);
   const upcoming = Q.upcoming(queue);
-  const playing = Q.isCurrentPlaying(queue);
   const hasPlayer = status.playerTabId !== null;
+  const index = Q.currentIndex(queue);
+  const total = queue.entries.length;
+  const remaining = formatRemaining(Q.remainingSeconds(queue));
+  const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
   // What the player shows, with whatever details we know about it.
   const nowVideo: Q.Video | null = queue.nowPlaying
     ? [...queue.entries, ...queue.history].find((v) => v.videoId === queue.nowPlaying) ??
       { videoId: queue.nowPlaying, title: 'A video outside your queue', channel: '', durationSec: null }
     : null;
-  const art = queue.nowPlaying ?? current?.videoId ?? upcoming[0]?.videoId;
-  const remaining = formatRemaining(Q.remainingSeconds(queue));
 
   const gather = async () => {
     const { gathered } = await send({ type: 'tabs/gather' });
@@ -49,133 +60,116 @@ export function Popup() {
     <div className="popup">
       <header className="top">
         <img src="/icons/icon48.png" alt="" className="logo" />
-        <h1>QueueTube</h1>
+        <div className="top-text">
+          <h1>QueueTube</h1>
+          <p>{[position, remaining].filter(Boolean).join(' · ')}</p>
+        </div>
         <button className="icon-btn" onClick={() => browser.runtime.openOptionsPage()} aria-label="Settings" title="Settings">
           <SettingsIcon />
         </button>
       </header>
 
-      <section className="now glass" aria-label="Player">
-        {art && <div className="ambient" style={{ backgroundImage: `url(${thumbnailUrl(art)})` }} />}
-        <div className="now-body">
-          {hasPlayer && nowVideo ? (
-            <div className="now-track">
-              <Thumb video={nowVideo} width={88} />
-              <div className="now-meta">
-                <span className="eyebrow">{playing ? <><Equalizer /> Now playing</> : 'Not from your queue'}</span>
-                <Title video={nowVideo} className="now-title" />
-                {nowVideo.channel && <span className="now-channel">{nowVideo.channel}</span>}
-              </div>
-            </div>
-          ) : (
-            <div className="now-empty">
-              <MonitorPlay aria-hidden="true" />
-              <div>
-                <p className="now-title">{hasPlayer ? 'Player is ready' : 'No player tab'}</p>
-                <p className="now-channel">
-                  {hasPlayer ? 'Pick something from the queue to start.' : 'Open YouTube and that tab becomes your player.'}
-                </p>
-              </div>
-            </div>
-          )}
+      <hr />
 
-          <div className="transport">
-            <button
-              className="icon-btn"
-              disabled={!Q.canGoBack(queue, settings)}
-              onClick={() => send({ type: 'play/previous' })}
-              aria-label="Play previous"
-              title="Previous (Alt+Shift+,)"
-            >
-              <SkipBack />
-            </button>
-            <button className="btn primary" onClick={goToPlayer}>
-              <ExternalLink aria-hidden="true" />
-              {hasPlayer ? 'Go to player' : 'Open YouTube'}
-            </button>
-            <button
-              className="icon-btn"
-              disabled={!Q.nextEntry(queue)}
-              onClick={() => send({ type: 'play/next' })}
-              aria-label="Play next"
-              title="Next (Alt+Shift+.)"
-            >
-              <SkipForward />
-            </button>
-          </div>
-        </div>
+      <section className="now" aria-label="Player">
+        {hasPlayer && nowVideo ? (
+          <button className="video" onClick={goToPlayer} title="Go to the player tab">
+            <Thumb video={nowVideo} width={100} />
+            <span className="video-meta">
+              <span className="label">{Q.isCurrentPlaying(queue) ? 'Now playing' : 'Playing outside your queue'}</span>
+              <Title video={nowVideo} className="video-title" />
+              {nowVideo.channel && <span className="video-channel">{nowVideo.channel}</span>}
+            </span>
+          </button>
+        ) : (
+          <p className="placeholder">
+            {hasPlayer ? 'The player is ready. Pick something from the queue to start.' : 'No player tab yet. The YouTube tab you open becomes the player.'}
+          </p>
+        )}
       </section>
 
-      {status.claimableTabId !== null && (
-        <button className="claim" onClick={() => send({ type: 'player/claimActiveTab' }).then(refreshStatus)}>
-          <MonitorPlay aria-hidden="true" />
-          <span>
-            <strong>Play queue in this tab</strong>
-            <span>{hasPlayer ? 'Makes this tab the player instead' : 'Makes this tab the player'}</span>
-          </span>
-        </button>
-      )}
-
-      <section className="upnext" aria-label="Up next">
-        <div className="section-head">
-          <h2>Up next</h2>
-          <span>
-            {upcoming.length ? pluralVideos(upcoming.length) : 'Empty'}
-            {remaining && ` · ${remaining}`}
-          </span>
-        </div>
-        {upcoming.length === 0 ? (
-          <p className="hint">Open YouTube videos in new tabs to queue them.</p>
-        ) : (
+      {upcoming.length > 0 && (
+        <section className="upnext" aria-label="Up next">
+          <h2>
+            Up next <span className="count">{upcoming.length}</span>
+          </h2>
           <ol>
             {upcoming.slice(0, UP_NEXT_LIMIT).map((entry) => (
               <li key={entry.id}>
-                <button className="mini" onClick={() => send({ type: 'play/entry', entryId: entry.id })} title="Play now">
-                  <Thumb video={entry} width={64} />
-                  <span className="mini-meta">
-                    <Title video={entry} className="mini-title" />
-                    <span className="mini-channel">{entry.channel || ' '}</span>
+                <button className="video small" onClick={() => send({ type: 'play/entry', entryId: entry.id })} title="Play now">
+                  <Thumb video={entry} width={88} />
+                  <span className="video-meta">
+                    <Title video={entry} className="video-title" />
+                    <span className="video-channel">{entry.channel || ' '}</span>
                   </span>
                 </button>
               </li>
             ))}
           </ol>
-        )}
-        {upcoming.length > UP_NEXT_LIMIT && <p className="more">+ {upcoming.length - UP_NEXT_LIMIT} more in the panel</p>}
-      </section>
+        </section>
+      )}
 
-      <div className="actions">
-        <button className="btn" onClick={gather} title="Gather open YouTube tabs (Alt+Shift+Q)">
-          <Layers aria-hidden="true" /> Gather tabs
+      <hr />
+
+      <nav className="items" aria-label="Actions">
+        {!hasPlayer && (
+          <button className="item" onClick={goToPlayer}>
+            <SquarePlay aria-hidden="true" />
+            Open YouTube
+          </button>
+        )}
+        {status.claimableTabId !== null && (
+          <button className="item" onClick={() => send({ type: 'player/claimActiveTab' }).then(refreshStatus)}>
+            <MonitorPlay aria-hidden="true" />
+            Play queue in this tab
+          </button>
+        )}
+        <button className="item" disabled={!Q.canGoBack(queue, settings)} onClick={() => send({ type: 'play/previous' })}>
+          <SkipBack aria-hidden="true" />
+          Play previous
+          <kbd>Alt+Shift+,</kbd>
+        </button>
+        <button className="item" disabled={!Q.nextEntry(queue)} onClick={() => send({ type: 'play/next' })}>
+          <SkipForward aria-hidden="true" />
+          Play next
+          <kbd>Alt+Shift+.</kbd>
+        </button>
+      </nav>
+
+      <hr />
+
+      <nav className="items" aria-label="Queue">
+        <button className="item" onClick={gather}>
+          <Layers aria-hidden="true" />
+          Gather open tabs
+          <kbd>Alt+Shift+Q</kbd>
         </button>
         <button
-          className="btn"
+          className="item"
           disabled={!hasPlayer}
           onClick={() => send({ type: 'settings/update', patch: { sidebarCollapsed: !settings.sidebarCollapsed } })}
-          title="Show or hide the queue panel (Alt+Shift+L)"
         >
           {settings.sidebarCollapsed ? <PanelRightOpen aria-hidden="true" /> : <PanelRightClose aria-hidden="true" />}
-          {settings.sidebarCollapsed ? 'Expand panel' : 'Collapse panel'}
+          {settings.sidebarCollapsed ? 'Expand queue panel' : 'Collapse queue panel'}
+          <kbd>Alt+Shift+L</kbd>
         </button>
-      </div>
+        <label className="item">
+          <ListVideo aria-hidden="true" />
+          <span className="item-text">Auto-queue new tabs</span>
+          <input
+            type="checkbox"
+            className="switch"
+            checked={settings.autoQueue}
+            onChange={(e) => send({ type: 'settings/update', patch: { autoQueue: e.target.checked } })}
+          />
+        </label>
+      </nav>
+
       {notice && (
         <p className="notice" role="status">
           {notice}
         </p>
       )}
-
-      <label className="toggle-row">
-        <span>
-          <strong>Auto-queue new tabs</strong>
-          <span>Videos opened in a new tab join the queue</span>
-        </span>
-        <input
-          type="checkbox"
-          className="switch"
-          checked={settings.autoQueue}
-          onChange={(e) => send({ type: 'settings/update', patch: { autoQueue: e.target.checked } })}
-        />
-      </label>
     </div>
   );
 }

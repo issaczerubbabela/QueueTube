@@ -50,37 +50,67 @@ const COMMAND_LABELS: Record<string, string> = {
   'toggle-queue': 'Collapse or expand the panel',
 };
 
+const SECTIONS = [
+  { id: 'queueing', label: 'Queueing' },
+  { id: 'playback', label: 'Playback' },
+  { id: 'shortcuts', label: 'Keyboard shortcuts' },
+  { id: 'queue', label: 'Your queue' },
+];
+
 function SettingRows({ rows, settings }: { rows: typeof QUEUE_SETTINGS; settings: Settings }) {
   return (
     <>
       {rows.map(({ key, title, detail }) => (
-        <label key={key} className="cell">
-          <span className="cell-text">
-            <span className="cell-title">{title}</span>
-            <span className="cell-detail">{detail}</span>
+        <div key={key} className="setting">
+          <span className="setting-label" id={`label-${key}`}>
+            {title}
           </span>
-          <input
-            type="checkbox"
-            className="switch"
-            checked={settings[key]}
-            onChange={(e) => send({ type: 'settings/update', patch: { [key]: e.target.checked } })}
-          />
-        </label>
+          <label className="setting-control">
+            <input
+              type="checkbox"
+              className="checkbox"
+              aria-labelledby={`label-${key}`}
+              aria-describedby={`detail-${key}`}
+              checked={settings[key]}
+              onChange={(e) => send({ type: 'settings/update', patch: { [key]: e.target.checked } })}
+            />
+            <span id={`detail-${key}`}>{detail}</span>
+          </label>
+        </div>
       ))}
     </>
   );
 }
 
+/** Laid out like YouTube's own settings pages: a left nav, a headline, then titled sections of label/control rows. */
 export function Options() {
   const { ready, queue, settings } = useExtensionState();
   const [commands, setCommands] = useState<browser.Commands.Command[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [active, setActive] = useState(SECTIONS[0].id);
   const fileInput = useRef<HTMLInputElement>(null);
   const isFirefox = navigator.userAgent.includes('Firefox');
 
   useEffect(() => {
     browser.commands?.getAll().then(setCommands).catch(() => {});
   }, []);
+
+  // Highlight the nav entry for the section nearest the top of the viewport.
+  useEffect(() => {
+    if (!ready) return;
+    const onScroll = () => {
+      let current = SECTIONS[0].id;
+      for (const { id } of SECTIONS) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top < 160) current = id;
+      }
+      if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 2) current = SECTIONS[SECTIONS.length - 1].id;
+      setActive(current);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [ready]);
 
   if (!ready) return null;
 
@@ -90,90 +120,109 @@ export function Options() {
       : browser.tabs.create({ url: 'chrome://extensions/shortcuts' });
 
   return (
-    <main className="page">
+    <>
       <header className="masthead">
-        <img src="/icons/icon128.png" alt="" className="logo" />
-        <div>
-          <h1>QueueTube</h1>
-          <p>One player tab. Every other video lines up behind it.</p>
-        </div>
-        <span className="version">v{browser.runtime.getManifest().version}</span>
+        <img src="/icons/icon48.png" alt="" className="logo" />
+        <span className="wordmark">QueueTube</span>
+        <span className="version">{browser.runtime.getManifest().version}</span>
       </header>
 
-      <h2 className="group-label">Queueing</h2>
-      <section className="group glass">
-        <SettingRows rows={QUEUE_SETTINGS} settings={settings} />
-      </section>
-
-      <h2 className="group-label">Playback</h2>
-      <section className="group glass">
-        <SettingRows rows={PLAYBACK_SETTINGS} settings={settings} />
-      </section>
-
-      <h2 className="group-label">Keyboard shortcuts</h2>
-      <section className="group glass">
-        {commands
-          .filter((c) => c.name && COMMAND_LABELS[c.name])
-          .map((c) => (
-            <div key={c.name} className="cell">
-              <span className="cell-title">{COMMAND_LABELS[c.name!]}</span>
-              {c.shortcut ? <kbd>{c.shortcut}</kbd> : <span className="unset">Not set</span>}
-            </div>
+      <div className="layout">
+        <nav className="nav" aria-label="Settings sections">
+          <h2>Settings</h2>
+          {SECTIONS.map(({ id, label }) => (
+            <a key={id} href={`#${id}`} className="nav-item" aria-current={active === id ? 'true' : undefined}>
+              {label}
+            </a>
           ))}
-        <div className="cell">
-          <span className="cell-detail">Shortcuts are managed by your browser.</span>
-          <button className="btn" onClick={openShortcutSettings}>
-            Change shortcuts
-          </button>
-        </div>
-      </section>
+        </nav>
 
-      <h2 className="group-label">Your queue</h2>
-      <section className="group glass">
-        <div className="cell">
-          <span className="cell-text">
-            <span className="cell-title">Export</span>
-            <span className="cell-detail">Save the queue ({pluralVideos(queue.entries.length)}) as a text file of links.</span>
-          </span>
-          <button className="btn" disabled={queue.entries.length === 0} onClick={() => exportQueue(queue.entries)}>
-            Export
-          </button>
-        </div>
-        <div className="cell">
-          <span className="cell-text">
-            <span className="cell-title">Import</span>
-            <span className="cell-detail">Add every YouTube link found in a text file.</span>
-          </span>
-          <button className="btn" onClick={() => fileInput.current?.click()}>
-            Import…
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".txt,text/plain"
-            hidden
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (file) setNotice(await importQueue(file).catch(() => 'Could not read that file'));
-            }}
-          />
-        </div>
-        <div className="cell">
-          <span className="cell-text">
-            <span className="cell-title">History</span>
-            <span className="cell-detail">{pluralVideos(queue.history.length)} you've moved past.</span>
-          </span>
-          <button className="btn danger" disabled={queue.history.length === 0} onClick={() => send({ type: 'history/clear' })}>
-            Clear history
-          </button>
-        </div>
-      </section>
-      {notice && (
-        <p className="notice" role="status">
-          {notice}
-        </p>
-      )}
-    </main>
+        <main className="page">
+          <p className="eyebrow">QueueTube</p>
+          <h1>Choose how your queue works</h1>
+
+          <section id="queueing">
+            <h2>Queueing</h2>
+            <p className="section-sub">How videos get into the queue</p>
+            <SettingRows rows={QUEUE_SETTINGS} settings={settings} />
+          </section>
+
+          <section id="playback">
+            <h2>Playback</h2>
+            <p className="section-sub">What happens in the player tab</p>
+            <SettingRows rows={PLAYBACK_SETTINGS} settings={settings} />
+          </section>
+
+          <section id="shortcuts">
+            <h2>Keyboard shortcuts</h2>
+            <p className="section-sub">Shortcuts are managed by your browser</p>
+            {commands
+              .filter((c) => c.name && COMMAND_LABELS[c.name])
+              .map((c) => (
+                <div key={c.name} className="setting">
+                  <span className="setting-label">{COMMAND_LABELS[c.name!]}</span>
+                  <span className="setting-control">{c.shortcut ? <kbd>{c.shortcut}</kbd> : <span className="muted">Not set</span>}</span>
+                </div>
+              ))}
+            <div className="setting">
+              <span className="setting-label" />
+              <span className="setting-control">
+                <button className="link" onClick={openShortcutSettings}>
+                  Change shortcuts
+                </button>
+              </span>
+            </div>
+          </section>
+
+          <section id="queue">
+            <h2>Your queue</h2>
+            <p className="section-sub">Move your queue in and out of QueueTube as a text file of links</p>
+            <div className="setting">
+              <span className="setting-label">Export</span>
+              <span className="setting-control stacked">
+                <button className="link" disabled={queue.entries.length === 0} onClick={() => exportQueue(queue.entries)}>
+                  Export queue
+                </button>
+                <span className="muted">Saves {pluralVideos(queue.entries.length)} as a text file.</span>
+              </span>
+            </div>
+            <div className="setting">
+              <span className="setting-label">Import</span>
+              <span className="setting-control stacked">
+                <button className="link" onClick={() => fileInput.current?.click()}>
+                  Import from file
+                </button>
+                <span className="muted">Adds every YouTube link found in a text file.</span>
+              </span>
+              <input
+                ref={fileInput}
+                type="file"
+                accept=".txt,text/plain"
+                hidden
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (file) setNotice(await importQueue(file).catch(() => 'Could not read that file'));
+                }}
+              />
+            </div>
+            <div className="setting">
+              <span className="setting-label">History</span>
+              <span className="setting-control stacked">
+                <button className="link" disabled={queue.history.length === 0} onClick={() => send({ type: 'history/clear' })}>
+                  Clear history
+                </button>
+                <span className="muted">{pluralVideos(queue.history.length)} you've moved past.</span>
+              </span>
+            </div>
+            {notice && (
+              <p className="notice" role="status">
+                {notice}
+              </p>
+            )}
+          </section>
+        </main>
+      </div>
+    </>
   );
 }

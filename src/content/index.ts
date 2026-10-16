@@ -11,9 +11,12 @@ import sidebarCss from '../sidebar/sidebar.css?inline';
 
 const HOST_ID = 'queuetube-host';
 
-// After an extension update the old copy of this script is orphaned but its panel stays in
-// the page; the new copy replaces it.
-document.getElementById(HOST_ID)?.remove();
+// After an extension reload the old copy of this script is orphaned but keeps running, and its
+// observer would put its panel back. Each copy stamps its panel; an older copy that sees a
+// newer copy's panel removes its own and stops.
+const INSTANCE = String(performance.now());
+const isStale = (el: Element) => el instanceof HTMLElement && Number(el.dataset.instance ?? -1) < Number(INSTANCE);
+document.querySelectorAll(`#${HOST_ID}`).forEach((el) => isStale(el) && el.remove());
 
 let host: HTMLElement | null = null;
 let root: Root | null = null;
@@ -36,6 +39,7 @@ function schedulePlacement() {
   requestAnimationFrame(() => {
     placementScheduled = false;
     if (!host) return;
+    if ([...document.querySelectorAll(`#${HOST_ID}`)].some((el) => el !== host && !isStale(el))) return unmount();
     const column = secondaryColumn();
     if (column && (host.parentElement !== column || column.firstElementChild !== host)) column.prepend(host);
     host.hidden = !column || !location.pathname.startsWith('/watch');
@@ -49,6 +53,7 @@ function mount() {
   if (host) return;
   host = document.createElement('div');
   host.id = HOST_ID;
+  host.dataset.instance = INSTANCE;
   host.hidden = true;
   // Page styles outrank :host rules, so spacing against YouTube's list is set inline.
   host.style.marginBottom = '16px';
