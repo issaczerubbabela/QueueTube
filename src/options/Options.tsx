@@ -35,6 +35,11 @@ const PLAYBACK_SETTINGS: { key: BooleanSetting; title: string; detail: string }[
     detail: 'When a queued video ends, the next one starts in the player tab.',
   },
   {
+    key: 'skipWatched',
+    title: 'Skip watched videos',
+    detail: "When the queue moves on, pass over videos you've already watched (played to the end, or 90% of the way). They stay in the queue; Clear watched in the panel's ⋮ menu removes them.",
+  },
+  {
     key: 'removeAfterPlaying',
     title: 'Remove videos after playing',
     detail: 'Videos leave the queue once you move past them. They stay in History.',

@@ -2,7 +2,7 @@
 // Every read-modify-write runs inside `serial`, so tab events and commands never interleave.
 import browser from 'webextension-polyfill';
 import type { ProgressMap } from '../domain/progress';
-import { DEFAULT_SETTINGS, Entry, Queue, Settings, upcoming } from '../domain/queue';
+import { DEFAULT_SETTINGS, Entry, Queue, Settings, UndoSnapshot, upcoming } from '../domain/queue';
 import { KEYS, readProgress, readQueue, readSettings } from '../shared/state';
 
 let tail: Promise<unknown> = Promise.resolve();
@@ -79,8 +79,6 @@ export function forgetTab(book: TabBook, tabId: number): void {
 export async function saveBook(book: TabBook): Promise<void> {
   await browser.storage.session.set({ [BOOK_KEY]: book });
 }
-
-export type UndoSnapshot = Pick<Queue, 'entries' | 'currentId'>;
 
 export async function saveUndo(snapshot: UndoSnapshot | null): Promise<void> {
   if (snapshot) await browser.storage.session.set({ [KEYS.undo]: snapshot });

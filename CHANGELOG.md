@@ -6,6 +6,7 @@ What changed in each version of Cue, newest first. This file is shown in Cue's s
 
 - **Pick up where you left off.** Cue remembers how far you got into each video and resumes from there whenever it plays it again, even after a browser restart. A link with a time in it (`t=1m30s`) starts at that time instead. Videos you've barely started, or have finished, start from the beginning.
 - A red bar under each thumbnail in the queue and in History shows how much of the video you've watched, as on YouTube. It fills up as you watch, and is full once you've watched the video.
+- A video counts as **watched** once it has ended or you've seen 90% of it. Turn on **Skip watched videos** in settings and the queue passes over watched videos when it moves on, leaving them in the queue. **Clear watched** in the panel's ⋮ menu removes them, and can be undone.
 
 ## 1.2.0
 

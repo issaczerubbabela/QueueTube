@@ -94,6 +94,11 @@ export const GUIDE: GuideGroup[] = [
         setting: 'autoAdvance',
       },
       {
+        title: 'Skip watched',
+        text: "Turn this on and, when the queue moves on, it passes over videos you've already watched. They stay in the queue.",
+        setting: 'skipWatched',
+      },
+      {
         title: 'Collapse the panel',
         text: "Fold the panel down to one line with the arrow in its header. It still shows what's next.",
         shortcut: 'toggle-queue',
@@ -122,6 +127,10 @@ export const GUIDE: GuideGroup[] = [
       {
         title: 'Undo',
         text: 'Removed a video or cleared the queue by mistake? Choose Undo in the message that appears at the bottom of the panel.',
+      },
+      {
+        title: 'Clear watched',
+        text: "Choose Clear watched in the panel's ⋮ menu to remove every video you've watched (played to the end, or 90% of the way) from the queue. Undo brings them back.",
       },
       {
         title: 'Remove after playing',

@@ -14,13 +14,14 @@ import {
   Trash2,
   Upload,
   Download,
+  ListChecks,
 } from 'lucide-react';
 import browser from 'webextension-polyfill';
 import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
 import { playlistUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
-import { useExtensionState } from '../shared/state';
+import { useExtensionState, useWatchedVideos } from '../shared/state';
 import { EMPTY_QUEUE_HINT, Menu, Title, Toast, useMenu, useToast } from '../ui/components';
 import { tintStyle, useTint } from '../ui/tint';
 import { dropVideos, exportQueue, formatRemaining, importQueue, mayHoldLinks, pluralVideos } from '../ui/transfer';
@@ -37,11 +38,13 @@ export function Sidebar() {
   const { toast, show, dismiss } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const tint = useTint(ready ? Q.currentEntry(queue)?.videoId : null);
+  const watched = useWatchedVideos();
 
   if (!ready) return null;
 
   const index = Q.currentIndex(queue);
-  const next = Q.nextEntry(queue);
+  const next = Q.nextEntry(queue, Q.skipped(settings, watched));
+  const watchedCount = queue.entries.filter((e) => watched.has(e.videoId)).length;
   const total = queue.entries.length;
   const remaining = formatRemaining(Q.remainingSeconds(queue));
   const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
@@ -212,6 +215,15 @@ export function Sidebar() {
               onSelect: () => send({ type: 'tabs/openFree', url: playlistUrl(queue.entries.map((e) => e.videoId)) }),
             },
             'separator',
+            {
+              label: 'Clear watched',
+              icon: <ListChecks />,
+              disabled: watchedCount === 0,
+              onSelect: async () => {
+                await send({ type: 'queue/clearWatched' });
+                withUndo(`Cleared ${pluralVideos(watchedCount)} you've watched`);
+              },
+            },
             {
               label: 'Clear queue',
               icon: <Trash2 />,

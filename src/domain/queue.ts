@@ -34,6 +34,8 @@ export interface Settings {
   autoAdvance: boolean;
   lookUpDurations: boolean;
   sidebarCollapsed: boolean;
+  /** When the queue Advances, pass over Watched entries (they stay in the queue). */
+  skipWatched: boolean;
 }
 
 export const EMPTY_QUEUE: Queue = { entries: [], currentId: null, nowPlaying: null, history: [] };
@@ -46,6 +48,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoAdvance: true,
   lookUpDurations: true,
   sidebarCollapsed: false,
+  skipWatched: false,
 };
 
 export const HISTORY_LIMIT = 50;
@@ -68,6 +71,9 @@ export const systemClock: Clock = {
 
 const stay = (queue: Queue): Step => ({ queue, play: null });
 
+/** No videos: the default for the Watched videos an operation passes over. */
+const NONE: ReadonlySet<string> = new Set();
+
 // ── Queries ──────────────────────────────────────────────────────────────────
 
 export function currentIndex(queue: Queue): number {
@@ -78,9 +84,14 @@ export function currentEntry(queue: Queue): Entry | null {
   return queue.entries[currentIndex(queue)] ?? null;
 }
 
-/** The entry "next" would play. */
-export function nextEntry(queue: Queue): Entry | null {
-  return queue.entries[currentIndex(queue) + 1] ?? null;
+/** The entry "next" would play, passing over any videos in `skip` (Watched ones, with Skip watched on). */
+export function nextEntry(queue: Queue, skip: ReadonlySet<string> = NONE): Entry | null {
+  return queue.entries.find((e, i) => i > currentIndex(queue) && !skip.has(e.videoId)) ?? null;
+}
+
+/** The videos Advance passes over: the Watched ones when Skip watched is on, otherwise none. */
+export function skipped(settings: Pick<Settings, 'skipWatched'>, watched: ReadonlySet<string>): ReadonlySet<string> {
+  return settings.skipWatched ? watched : NONE;
 }
 
 /** Entries after the current one. */
@@ -160,6 +171,18 @@ export function clear(queue: Queue): Queue {
   return { ...queue, entries: [], currentId: null };
 }
 
+/**
+ * Removes the entries whose video is Watched. If the current entry goes, the cursor stays just
+ * before the entry that followed it, as with `remove`. Undo restores them like a clear.
+ */
+export function clearWatched(queue: Queue, watched: ReadonlySet<string>): Queue {
+  if (!queue.entries.some((e) => watched.has(e.videoId))) return queue;
+  const index = currentIndex(queue);
+  const entries = queue.entries.filter((e) => !watched.has(e.videoId));
+  const keptBefore = queue.entries.slice(0, index + 1).filter((e) => !watched.has(e.videoId));
+  return { ...queue, entries, currentId: keptBefore[keptBefore.length - 1]?.id ?? null };
+}
+
 export function clearHistory(queue: Queue): Queue {
   return { ...queue, history: [] };
 }
@@ -176,10 +199,13 @@ function recordHistory(history: HistoryItem[], video: Video, now: number): Histo
   return [item, ...history.filter((h) => h.videoId !== videoId)].slice(0, HISTORY_LIMIT);
 }
 
-/** Moves to the entry after the current one. At the end of the queue nothing plays. */
-export function advance(queue: Queue, settings: Settings, clock: Clock = systemClock): Step {
+/**
+ * Moves to the entry after the current one. At the end of the queue nothing plays. With Skip
+ * watched on, Watched entries (`watched`) are passed over and stay in the queue.
+ */
+export function advance(queue: Queue, settings: Settings, clock: Clock = systemClock, watched: ReadonlySet<string> = NONE): Step {
   const current = currentEntry(queue);
-  const next = nextEntry(queue);
+  const next = nextEntry(queue, skipped(settings, watched));
   if (!next) {
     if (!current || !settings.removeAfterPlaying) return stay(queue);
     // The last entry finished: it leaves the queue, and nothing else plays.
@@ -256,16 +282,23 @@ export function describe(queue: Queue, videoId: string, details: Partial<Video>)
   return changed ? { ...queue, entries, history } : queue;
 }
 
+/** What Undo needs: the entries and current entry before a change, and where the change left the cursor. */
+export interface UndoSnapshot extends Pick<Queue, 'entries' | 'currentId'> {
+  /** The current entry right after the change; if it is still current, nothing has played since. */
+  currentAfter?: string | null;
+}
+
 /**
  * Undoes a remove or clear: brings back the entries from `before` in their old order, keeps
- * anything added since, and restores the old current entry if nothing newer is current.
+ * anything added since, and restores the old current entry unless the queue has moved on since.
  */
-export function restore(queue: Queue, before: Pick<Queue, 'entries' | 'currentId'>): Queue {
+export function restore(queue: Queue, before: UndoSnapshot): Queue {
   const known = new Set(before.entries.map((e) => e.id));
   const addedSince = queue.entries.filter((e) => !known.has(e.id));
   const entries = [...before.entries, ...addedSince];
-  const currentStillThere = queue.currentId !== null && entries.some((e) => e.id === queue.currentId);
-  return { ...queue, entries, currentId: currentStillThere ? queue.currentId : before.currentId };
+  const movedOn =
+    queue.currentId !== null && queue.currentId !== (before.currentAfter ?? null) && entries.some((e) => e.id === queue.currentId);
+  return { ...queue, entries, currentId: movedOn ? queue.currentId : before.currentId };
 }
 
 /** Total seconds of known durations for the upcoming entries. */

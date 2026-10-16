@@ -35,11 +35,12 @@ async function play(videoId: string): Promise<void> {
 }
 
 /**
- * Applies a queue operation and loads whatever video it asks for. Call only inside `serial`.
+ * Applies a queue operation and loads whatever video it asks for. The operation also gets the
+ * Watched videos. Call only inside `serial`.
  */
-async function apply(op: (queue: Q.Queue, settings: Q.Settings) => Q.Step | Q.Queue): Promise<void> {
-  const [queue, settings] = await Promise.all([loadQueue(), loadSettings()]);
-  const result = op(queue, settings);
+async function apply(op: (queue: Q.Queue, settings: Q.Settings, watched: ReadonlySet<string>) => Q.Step | Q.Queue): Promise<void> {
+  const [queue, settings, progress] = await Promise.all([loadQueue(), loadSettings(), loadProgress()]);
+  const result = op(queue, settings, P.watchedVideos(progress));
   const step: Q.Step = 'play' in result ? result : { queue: result, play: null };
   if (step.queue !== queue) await saveQueue(step.queue);
   if (step.play) await play(step.play);
@@ -87,9 +88,12 @@ async function add(videoIds: string[], at: Q.Position = 'end', starts?: Record<s
   return { added: (await loadQueue()).entries.length - before };
 }
 
-async function snapshotForUndo(): Promise<void> {
+/** Applies an operation that removes entries, keeping what Undo needs to bring them back. */
+async function undoable(op: Parameters<typeof apply>[0]): Promise<void> {
   const { entries, currentId } = await loadQueue();
-  if (entries.length > 0) await saveUndo({ entries, currentId });
+  await apply(op);
+  const after = await loadQueue();
+  if (entries.length > 0 && after.entries.length < entries.length) await saveUndo({ entries, currentId, currentAfter: after.currentId });
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
@@ -248,12 +252,11 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     case 'queue/add':
       return add(command.videoIds, command.at, command.starts);
     case 'queue/remove':
-      if (!(await loadQueue()).entries.some((e) => e.id === command.entryId)) return;
-      await snapshotForUndo();
-      return apply((q) => Q.remove(q, command.entryId));
+      return undoable((q) => Q.remove(q, command.entryId));
     case 'queue/clear':
-      await snapshotForUndo();
-      return apply((q) => Q.clear(q));
+      return undoable((q) => Q.clear(q));
+    case 'queue/clearWatched':
+      return undoable((q, _s, watched) => Q.clearWatched(q, watched));
     case 'queue/undo': {
       const snapshot = await loadUndo();
       if (!snapshot) return;
@@ -272,7 +275,7 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     case 'play/video':
       return play(command.videoId);
     case 'play/next':
-      return apply((q, s) => Q.advance(q, s));
+      return apply((q, s, watched) => Q.advance(q, s, Q.systemClock, watched));
     case 'play/previous':
       return apply((q, s) => Q.goBack(q, s));
 
@@ -282,7 +285,7 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
       if (command.videoId) await applyProgress((p) => P.markWatched(p, command.videoId!, command.durationSec ?? null));
       const settings = await loadSettings();
       if (!settings.autoAdvance) return;
-      return apply((q, s) => (q.nowPlaying === command.videoId ? Q.advance(q, s) : q));
+      return apply((q, s, watched) => (q.nowPlaying === command.videoId ? Q.advance(q, s, Q.systemClock, watched) : q));
     }
     case 'player/progress': {
       const book = await loadBook();
@@ -335,7 +338,7 @@ onMenuClick((videoIds, at, starts) => serial(() => add(videoIds, at, starts)));
 browser.commands?.onCommand.addListener((name) => {
   serial(async () => {
     if (name === 'gather-tabs') await gather();
-    else if (name === 'next-video') await apply((q, s) => Q.advance(q, s));
+    else if (name === 'next-video') await apply((q, s, watched) => Q.advance(q, s, Q.systemClock, watched));
     else if (name === 'previous-video') await apply((q, s) => Q.goBack(q, s));
     else if (name === 'toggle-queue') {
       const settings = await loadSettings();

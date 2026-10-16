@@ -16,7 +16,7 @@ import browser from 'webextension-polyfill';
 import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
 import { OptionsSection, Status, send } from '../shared/messages';
-import { useExtensionState } from '../shared/state';
+import { useExtensionState, useWatchedVideos } from '../shared/state';
 import { EMPTY_QUEUE_HINT, Thumb, Title } from '../ui/components';
 import { formatShortcut } from '../ui/shortcut';
 import { formatRemaining, pluralVideos } from '../ui/transfer';
@@ -30,6 +30,7 @@ export function Popup() {
   const [status, setStatus] = useState<Status | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [shortcuts, setShortcuts] = useState<Record<string, string>>({});
+  const watched = useWatchedVideos();
 
   const refreshStatus = () => send({ type: 'status' }).then(setStatus).catch(() => {});
   useEffect(() => {
@@ -158,7 +159,7 @@ export function Popup() {
           Play previous
           {shortcut('previous-video')}
         </button>
-        <button className="item" disabled={!Q.nextEntry(queue)} onClick={() => send({ type: 'play/next' })}>
+        <button className="item" disabled={!Q.nextEntry(queue, Q.skipped(settings, watched))} onClick={() => send({ type: 'play/next' })}>
           <SkipForward aria-hidden="true" />
           Play next
           {shortcut('next-video')}

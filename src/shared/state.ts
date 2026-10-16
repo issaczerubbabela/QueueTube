@@ -98,6 +98,7 @@ export function useExtensionState(): ExtensionState {
 // ── Watch progress: one subscription per page, read per video ──────────────
 
 let progressMap: ProgressMap = {};
+let watchedSet: ReadonlySet<string> = new Set();
 const progressListeners = new Set<() => void>();
 let progressStarted = false;
 
@@ -109,6 +110,8 @@ function updateProgress(next: ProgressMap) {
   const merged: ProgressMap = {};
   for (const [videoId, p] of Object.entries(next)) merged[videoId] = sameProgress(progressMap[videoId], p) ? progressMap[videoId] : p;
   progressMap = merged;
+  const watched = Object.keys(merged).filter((id) => merged[id].watched);
+  if (watched.length !== watchedSet.size || watched.some((id) => !watchedSet.has(id))) watchedSet = new Set(watched);
   progressListeners.forEach((listener) => listener());
 }
 
@@ -132,4 +135,9 @@ function subscribeProgress(listener: () => void) {
  */
 export function useWatchProgress(videoId: string): Progress | undefined {
   return useSyncExternalStore(subscribeProgress, () => progressMap[videoId]);
+}
+
+/** The Watched videos. Changes only when a video becomes (or stops being) Watched. */
+export function useWatchedVideos(): ReadonlySet<string> {
+  return useSyncExternalStore(subscribeProgress, () => watchedSet);
 }

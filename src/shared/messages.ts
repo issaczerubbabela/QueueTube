@@ -13,6 +13,8 @@ export type Command =
   | { type: 'queue/move'; entryId: string; toIndex: number }
   | { type: 'queue/playNextInLine'; entryId: string }
   | { type: 'queue/clear' }
+  /** Removes the entries whose video is Watched; undoable. */
+  | { type: 'queue/clearWatched' }
   | { type: 'queue/undo' }
   | { type: 'history/clear' }
   | { type: 'play/entry'; entryId: string }

@@ -9,6 +9,7 @@ import {
   advance,
   canGoBack,
   clear,
+  clearWatched,
   currentEntry,
   describe,
   enqueue,
@@ -16,6 +17,7 @@ import {
   isCurrentPlaying,
   jumpTo,
   move,
+  nextEntry,
   playNextInLine,
   playerShowing,
   remainingSeconds,
@@ -259,5 +261,89 @@ group('restore', () => {
   it('restores the old current entry after a clear', () => {
     const before = queueOf(['a', 'b'], 1);
     expect(restore(clear(before), before).currentId).toBe('id2');
+  });
+
+  it('restores a removed current entry as current', () => {
+    const before = queueOf(['a', 'b', 'c'], 1);
+    const after = remove(before, 'id2');
+    expect(restore(after, { ...before, currentAfter: after.currentId })).toEqual(before);
+  });
+
+  it('keeps the current entry when the queue has moved on since', () => {
+    const before = queueOf(['a', 'b', 'c'], 1);
+    const after = remove(before, 'id2');
+    const moved = advance(after, settings()).queue;
+    expect(restore(moved, { ...before, currentAfter: after.currentId }).currentId).toBe(moved.currentId);
+  });
+});
+
+group('Skip watched', () => {
+  const watched = new Set(['b', 'c']);
+
+  it('is off by default, so Advance plays Watched entries', () => {
+    expect(DEFAULT_SETTINGS.skipWatched).toBe(false);
+    expect(advance(queueOf(['a', 'b', 'c', 'd'], 0), settings(), fakeClock(), watched).play).toBe('b');
+  });
+
+  it('passes over Watched entries when on, and keeps them in the queue', () => {
+    const { queue, play } = advance(queueOf(['a', 'b', 'c', 'd'], 0), settings({ skipWatched: true }), fakeClock(), watched);
+    expect(play).toBe('d');
+    expect(ids(queue)).toEqual(['a', 'b', 'c', 'd']);
+    expect(currentEntry(queue)?.videoId).toBe('d');
+  });
+
+  it('records only the entry it moved past in History', () => {
+    const { queue } = advance(queueOf(['a', 'b', 'c', 'd'], 0), settings({ skipWatched: true }), fakeClock(), watched);
+    expect(queue.history.map((h) => h.videoId)).toEqual(['a']);
+  });
+
+  it('with Remove after playing, removes only the entry it moved past', () => {
+    const { queue } = advance(queueOf(['a', 'b', 'c', 'd'], 0), settings({ skipWatched: true, removeAfterPlaying: true }), fakeClock(), watched);
+    expect(ids(queue)).toEqual(['b', 'c', 'd']);
+  });
+
+  it('stays put when everything after the current entry is Watched', () => {
+    const q = queueOf(['a', 'b', 'c'], 0);
+    expect(advance(q, settings({ skipWatched: true }), fakeClock(), watched)).toEqual({ queue: q, play: null });
+  });
+
+  it('starts at the first unwatched entry when nothing is current', () => {
+    expect(advance(queueOf(['b', 'c', 'd']), settings({ skipWatched: true }), fakeClock(), watched).play).toBe('d');
+  });
+
+  it('nextEntry agrees with Advance', () => {
+    const q = queueOf(['a', 'b', 'c', 'd'], 0);
+    expect(nextEntry(q, watched)?.videoId).toBe('d');
+    expect(nextEntry(q)?.videoId).toBe('b');
+  });
+});
+
+group('clearWatched', () => {
+  const watched = new Set(['b', 'd']);
+
+  it('removes only Watched entries', () => {
+    expect(ids(clearWatched(queueOf(['a', 'b', 'c', 'd']), watched))).toEqual(['a', 'c']);
+  });
+
+  it('returns the same queue when nothing is Watched', () => {
+    const q = queueOf(['a', 'c']);
+    expect(clearWatched(q, watched)).toBe(q);
+  });
+
+  it('keeps the current entry when it is not Watched', () => {
+    const q = clearWatched(queueOf(['a', 'b', 'c', 'd'], 2), watched);
+    expect(currentEntry(q)?.videoId).toBe('c');
+  });
+
+  it('removing a Watched current entry leaves next pointing at the entry after it', () => {
+    const q = clearWatched(queueOf(['a', 'b', 'c', 'd'], 1), watched);
+    expect(currentEntry(q)?.videoId).toBe('a');
+    expect(advance(q, settings()).play).toBe('c');
+  });
+
+  it('can be undone exactly, like Clear', () => {
+    const before = queueOf(['a', 'b', 'c', 'd', 'e'], 3);
+    const after = clearWatched(before, watched);
+    expect(restore(after, { entries: before.entries, currentId: before.currentId, currentAfter: after.currentId })).toEqual(before);
   });
 });
