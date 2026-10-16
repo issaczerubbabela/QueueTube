@@ -22,9 +22,9 @@ import * as Q from '../domain/queue';
 import { playlistUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
 import { useExtensionState, useWatchedVideos } from '../shared/state';
-import { EMPTY_QUEUE_HINT, Menu, Title, Toast, useMenu, useToast } from '../ui/components';
+import { EMPTY_QUEUE_HINT, Menu, TimeLeft, Title, Toast, useMenu, useToast } from '../ui/components';
 import { tintStyle, useTint } from '../ui/tint';
-import { dropVideos, exportQueue, formatRemaining, importQueue, mayHoldLinks, pluralVideos } from '../ui/transfer';
+import { dropVideos, exportQueue, importQueue, mayHoldLinks, pluralVideos } from '../ui/transfer';
 import { HistoryList } from './HistoryList';
 import { QueueList } from './QueueList';
 
@@ -46,7 +46,6 @@ export function Sidebar() {
   const next = Q.nextEntry(queue, Q.skipped(settings, watched));
   const watchedCount = queue.entries.filter((e) => watched.has(e.videoId)).length;
   const total = queue.entries.length;
-  const remaining = formatRemaining(Q.remainingSeconds(queue));
   const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
   const whatsNew = whatsNewVersion(lastSeenVersion, browser.runtime.getManifest().version);
 
@@ -61,11 +60,7 @@ export function Sidebar() {
   };
 
   const collapsed = settings.sidebarCollapsed;
-  const subtitle = collapsed
-    ? next
-      ? null
-      : position
-    : [position, remaining].filter(Boolean).join(' · ');
+  const subtitle = collapsed && next ? null : position;
 
   return (
     <section className={`panel${collapsed ? ' collapsed' : ''}`} aria-label="Cue queue panel" style={tintStyle(tint)}>
@@ -74,7 +69,10 @@ export function Sidebar() {
           <div className="heading">
             <h2>Global Queue</h2>
             {subtitle !== null ? (
-              <p className="subtitle">{subtitle}</p>
+              <p className="subtitle">
+                {subtitle}
+                {!collapsed && <TimeLeft queue={queue} lead=" · " />}
+              </p>
             ) : (
               <p className="subtitle">
                 Next: <Title video={next!} className="next-title" />

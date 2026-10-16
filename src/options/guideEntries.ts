@@ -99,6 +99,14 @@ export const GUIDE: GuideGroup[] = [
         setting: 'skipWatched',
       },
       {
+        title: 'Stop after this',
+        text: "Choose Stop after this in a video's ⋮ menu and playback pauses when it ends instead of moving on. It clears itself once it has stopped, and setting it on another video moves it there.",
+      },
+      {
+        title: 'When it ends',
+        text: 'The panel header shows how long the rest of the queue lasts and the time it will finish, like "1 h 12 min left · ends 10:42 PM".',
+      },
+      {
         title: 'Collapse the panel',
         text: "Fold the panel down to one line with the arrow in its header. It still shows what's next.",
         shortcut: 'toggle-queue',

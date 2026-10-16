@@ -119,6 +119,7 @@ export async function migrateLegacyState(): Promise<void> {
     entries,
     currentId: entries.find((e) => e.videoId === legacy.currentVideoId)?.id ?? null,
     nowPlaying: null,
+    stopAfterId: null,
     history: (legacy.history ?? []).map((item) => ({
       videoId: item.videoId,
       title: cleanTitle(item.title),

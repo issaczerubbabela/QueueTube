@@ -12,6 +12,7 @@ import {
   clearWatched,
   currentEntry,
   describe,
+  endsAt,
   enqueue,
   goBack,
   isCurrentPlaying,
@@ -23,7 +24,11 @@ import {
   remainingSeconds,
   remove,
   restore,
+  secondsLeft,
+  setStopPoint,
+  stopsHere,
   upcoming,
+  videoEnded,
 } from './queue';
 
 function fakeClock(): Clock {
@@ -345,5 +350,90 @@ group('clearWatched', () => {
     const before = queueOf(['a', 'b', 'c', 'd', 'e'], 3);
     const after = clearWatched(before, watched);
     expect(restore(after, { entries: before.entries, currentId: before.currentId, currentAfter: after.currentId })).toEqual(before);
+  });
+});
+
+group('Stop point', () => {
+  it('pauses instead of Advancing when the Stop point entry ends, and clears itself', () => {
+    const q = setStopPoint(queueOf(['a', 'b', 'c'], 1), 'id2');
+    expect(stopsHere(q)).toBe(true);
+    const step = videoEnded(q, settings());
+    expect(step.play).toBeNull();
+    expect(step.stopped).toBe(true);
+    expect(step.queue.stopAfterId).toBeNull();
+    expect(currentEntry(step.queue)?.videoId).toBe('b');
+  });
+
+  it('pauses there even with Auto-advance off, and still clears', () => {
+    const step = videoEnded(setStopPoint(queueOf(['a', 'b'], 0), 'id1'), settings({ autoAdvance: false }));
+    expect(step.stopped).toBe(true);
+    expect(step.queue.stopAfterId).toBeNull();
+  });
+
+  it('Advances as usual from any other entry, keeping the Stop point', () => {
+    const step = videoEnded(setStopPoint(queueOf(['a', 'b', 'c'], 0), 'id2'), settings());
+    expect(step.play).toBe('b');
+    expect(step.stopped).toBe(false);
+    expect(step.queue.stopAfterId).toBe('id2');
+    expect(stopsHere(step.queue)).toBe(true);
+  });
+
+  it('does nothing when an entry ends with Auto-advance off', () => {
+    const q = queueOf(['a', 'b'], 0);
+    expect(videoEnded(q, settings({ autoAdvance: false }))).toEqual({ queue: q, play: null, stopped: false });
+  });
+
+  it('allows one Stop point: setting another replaces it', () => {
+    const q = setStopPoint(setStopPoint(queueOf(['a', 'b', 'c']), 'id1'), 'id3');
+    expect(q.stopAfterId).toBe('id3');
+  });
+
+  it('can be cleared, and ignores entries that are not queued', () => {
+    const q = setStopPoint(queueOf(['a', 'b']), 'id1');
+    expect(setStopPoint(q, null).stopAfterId).toBeNull();
+    expect(setStopPoint(q, 'nope')).toBe(q);
+  });
+
+  it('clears when its entry is removed, and comes back with Undo', () => {
+    const before = setStopPoint(queueOf(['a', 'b', 'c'], 0), 'id2');
+    const after = remove(before, 'id2');
+    expect(after.stopAfterId).toBeNull();
+    expect(remove(before, 'id3').stopAfterId).toBe('id2');
+    expect(restore(after, { ...before, currentAfter: after.currentId }).stopAfterId).toBe('id2');
+  });
+
+  it('clears with the queue, and when Remove after playing takes its entry', () => {
+    expect(clear(setStopPoint(queueOf(['a']), 'id1')).stopAfterId).toBeNull();
+    const q = setStopPoint(queueOf(['a', 'b'], 0), 'id1');
+    expect(advance(q, settings({ removeAfterPlaying: true })).queue.stopAfterId).toBeNull();
+  });
+});
+
+group('secondsLeft / endsAt', () => {
+  const timed = (current: number | null, playing = true): Queue => {
+    const q = enqueue(EMPTY_QUEUE, [video('a', 200), video('b', 300), video('c', null), video('d', 100)], settings(), 'end', fakeClock());
+    const currentId = current === null ? null : q.entries[current].id;
+    return { ...q, currentId, nowPlaying: playing && current !== null ? q.entries[current].videoId : null };
+  };
+
+  it('adds what is left of the current video to the entries still to come', () => {
+    expect(secondsLeft(timed(0), 50)).toBe(150 + 300 + 100);
+  });
+
+  it('counts the whole current video before any progress is known', () => {
+    expect(secondsLeft(timed(0))).toBe(600);
+  });
+
+  it('counts only the entries to come when the player is elsewhere', () => {
+    expect(secondsLeft(timed(0, false), 50)).toBe(400);
+  });
+
+  it('with nothing current, counts the whole queue', () => {
+    expect(secondsLeft(timed(null))).toBe(600);
+  });
+
+  it('ends at now plus the time left, from the clock', () => {
+    expect(endsAt(timed(1), 100, { now: () => 1_000_000 })).toBe(1_000_000 + (200 + 100) * 1000);
+    expect(endsAt(timed(3), 100, { now: () => 5 })).toBeNull();
   });
 });

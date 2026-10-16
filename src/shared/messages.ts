@@ -12,6 +12,8 @@ export type Command =
   | { type: 'queue/remove'; entryId: string }
   | { type: 'queue/move'; entryId: string; toIndex: number }
   | { type: 'queue/playNextInLine'; entryId: string }
+  /** Sets the Stop point to an entry (replacing any other), or clears it with null. */
+  | { type: 'queue/stopPoint'; entryId: string | null }
   | { type: 'queue/clear' }
   /** Removes the entries whose video is Watched; undoable. */
   | { type: 'queue/clearWatched' }
@@ -57,7 +59,11 @@ export function send<C extends Command>(command: C): Promise<Reply<C>> {
 }
 
 /** Messages the background sends to a content script. */
-export type TabMessage = { type: 'role'; isPlayer: boolean } | { type: 'ping' };
+export type TabMessage =
+  | { type: 'role'; isPlayer: boolean }
+  | { type: 'ping' }
+  /** The video ended at the Stop point: stay paused (cancel YouTube's autoplay). */
+  | { type: 'stopped' };
 
 /** Content script asks whether its tab is the player tab. */
 export type RoleQuery = { type: 'tab/role' };

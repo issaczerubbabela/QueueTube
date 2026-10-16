@@ -3,7 +3,7 @@ import browser from 'webextension-polyfill';
 import * as P from '../domain/progress';
 import * as Q from '../domain/queue';
 import { fetchDuration, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, parseVideoLink, startTimes } from '../domain/youtube';
-import type { Command, OptionsSection, RoleQuery, Status } from '../shared/messages';
+import type { Command, OptionsSection, RoleQuery, Status, TabMessage } from '../shared/messages';
 import { createMenus, onMenuClick } from './menus';
 import { currentPlayer, electPlayer, focusPlayer, focusTab, loadVideo, setPlayer } from './player';
 import {
@@ -90,10 +90,10 @@ async function add(videoIds: string[], at: Q.Position = 'end', starts?: Record<s
 
 /** Applies an operation that removes entries, keeping what Undo needs to bring them back. */
 async function undoable(op: Parameters<typeof apply>[0]): Promise<void> {
-  const { entries, currentId } = await loadQueue();
+  const { entries, currentId, stopAfterId } = await loadQueue();
   await apply(op);
   const after = await loadQueue();
-  if (entries.length > 0 && after.entries.length < entries.length) await saveUndo({ entries, currentId, currentAfter: after.currentId });
+  if (entries.length > 0 && after.entries.length < entries.length) await saveUndo({ entries, currentId, stopAfterId, currentAfter: after.currentId });
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
@@ -265,6 +265,8 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     }
     case 'queue/move':
       return apply((q) => Q.move(q, command.entryId, command.toIndex));
+    case 'queue/stopPoint':
+      return apply((q) => Q.setStopPoint(q, command.entryId));
     case 'queue/playNextInLine':
       return apply((q) => Q.playNextInLine(q, command.entryId));
     case 'history/clear':
@@ -283,9 +285,16 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
       const book = await loadBook();
       if (sender.tab?.id !== book.playerTabId) return;
       if (command.videoId) await applyProgress((p) => P.markWatched(p, command.videoId!, command.durationSec ?? null));
-      const settings = await loadSettings();
-      if (!settings.autoAdvance) return;
-      return apply((q, s, watched) => (q.nowPlaying === command.videoId ? Q.advance(q, s, Q.systemClock, watched) : q));
+      let stopped = false;
+      await apply((q, s, watched) => {
+        if (q.nowPlaying !== command.videoId) return q;
+        const step = Q.videoEnded(q, s, Q.systemClock, watched);
+        stopped = step.stopped;
+        return step;
+      });
+      // At the Stop point: keep YouTube's own autoplay from taking over.
+      if (stopped) await browser.tabs.sendMessage(book.playerTabId, { type: 'stopped' } satisfies TabMessage).catch(() => {});
+      return;
     }
     case 'player/progress': {
       const book = await loadBook();

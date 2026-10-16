@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { watchedFraction } from '../domain/progress';
+import * as Q from '../domain/queue';
 import type { Video } from '../domain/queue';
 import { formatDuration, thumbnailUrl } from '../domain/youtube';
 import { useWatchProgress } from '../shared/state';
+import { formatRemaining } from './transfer';
 
 /** Shown wherever the queue is empty: the two quickest ways to add a video. */
 export const EMPTY_QUEUE_HINT = 'Middle-click or Alt+click any video to queue it.';
@@ -18,6 +20,27 @@ export function Thumb({ video, width, progress = false }: { video: Video; width:
       {progress && <WatchBar video={video} />}
     </div>
   );
+}
+
+const clockTime = (timestamp: number) => new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+/**
+ * "1 h 12 min left · ends 10:42 PM": what is left of the current video plus the entries to come.
+ * Its own component, reading the current video's Watch progress, so position writes re-render
+ * only this text; it also ticks while paused, as the end time drifts.
+ */
+export function TimeLeft({ queue, lead = '' }: { queue: Q.Queue; /** Text before it, shown only with it, e.g. " · ". */ lead?: string }) {
+  const current = Q.currentEntry(queue);
+  const position = useWatchProgress(current?.videoId ?? '')?.position ?? null;
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const seconds = Q.secondsLeft(queue, position);
+  const left = formatRemaining(seconds);
+  if (!left) return null;
+  return <span className="time-left">{`${lead}${left} · ends ${clockTime(Date.now() + seconds * 1000)}`}</span>;
 }
 
 /** YouTube's red bar along the bottom of a thumbnail: Watch progress, full once Watched. */

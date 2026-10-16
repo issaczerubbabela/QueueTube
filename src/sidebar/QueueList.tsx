@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowUpToLine, EllipsisVertical, ExternalLink, Link, ListStart, Play, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpToLine, EllipsisVertical, ExternalLink, Link, ListStart, Pause, Play, X } from 'lucide-react';
 import * as Q from '../domain/queue';
 import { watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
@@ -113,6 +113,9 @@ export function QueueList({ queue, onRemoved, onDropMessage }: Props) {
         disabled: index === entries.length - 1,
         onSelect: () => moveTo(entry, entries.length - 1),
       },
+      entry.id === queue.stopAfterId
+        ? { label: "Don't stop after this", icon: <Play />, onSelect: () => send({ type: 'queue/stopPoint', entryId: null }) }
+        : { label: 'Stop after this', icon: <Pause />, onSelect: () => send({ type: 'queue/stopPoint', entryId: entry.id }) },
       'separator' as const,
       {
         label: 'Open in new tab',
@@ -123,7 +126,7 @@ export function QueueList({ queue, onRemoved, onDropMessage }: Props) {
       'separator' as const,
       { label: 'Remove from queue', icon: <X />, danger: true, onSelect: () => remove(entry) },
     ];
-  }, [menuEntry, entries, queue.currentId, currentIdx]);
+  }, [menuEntry, entries, queue.currentId, queue.stopAfterId, currentIdx]);
 
   return (
     <>
@@ -149,7 +152,7 @@ export function QueueList({ queue, onRemoved, onDropMessage }: Props) {
               tabIndex={0}
               aria-current={isCurrent ? 'true' : undefined}
               aria-describedby="qt-reorder-hint"
-              className={`row${isCurrent ? ' current' : ''}${dragging === index ? ' dragging' : ''}${dropClass}`}
+              className={`row${isCurrent ? ' current' : ''}${entry.id === queue.stopAfterId ? ' stop-point' : ''}${dragging === index ? ' dragging' : ''}${dropClass}`}
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.effectAllowed = 'move';
@@ -188,6 +191,12 @@ export function QueueList({ queue, onRemoved, onDropMessage }: Props) {
               <span className="meta">
                 <Title video={entry} className="title" />
                 <span className="channel">{entry.channel || ' '}</span>
+                {entry.id === queue.stopAfterId && (
+                  <span className="stop-mark">
+                    <Pause aria-hidden="true" />
+                    Stops after this
+                  </span>
+                )}
               </span>
               <span className="row-actions">
                 <button

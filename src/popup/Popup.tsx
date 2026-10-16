@@ -17,9 +17,9 @@ import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
 import { OptionsSection, Status, send } from '../shared/messages';
 import { useExtensionState, useWatchedVideos } from '../shared/state';
-import { EMPTY_QUEUE_HINT, Thumb, Title } from '../ui/components';
+import { EMPTY_QUEUE_HINT, Thumb, TimeLeft, Title } from '../ui/components';
 import { formatShortcut } from '../ui/shortcut';
-import { formatRemaining, pluralVideos } from '../ui/transfer';
+import { pluralVideos } from '../ui/transfer';
 
 // Browsers cap extension popups at 600px tall; this keeps the popup inside that.
 const UP_NEXT_LIMIT = 2;
@@ -47,7 +47,6 @@ export function Popup() {
   const hasPlayer = status.playerTabId !== null;
   const index = Q.currentIndex(queue);
   const total = queue.entries.length;
-  const remaining = formatRemaining(Q.remainingSeconds(queue));
   const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
   const whatsNew = whatsNewVersion(lastSeenVersion, browser.runtime.getManifest().version);
   // What the player shows, with whatever details we know about it.
@@ -79,7 +78,10 @@ export function Popup() {
         <img src="/icons/icon48.png" alt="" className="logo" />
         <div className="top-text">
           <h1>Cue</h1>
-          <p>{[position, remaining].filter(Boolean).join(' · ')}</p>
+          <p>
+            {position}
+            <TimeLeft queue={queue} lead=" · " />
+          </p>
         </div>
         <span className="top-actions">
           <button className="icon-btn" onClick={() => openOptions('guide')} aria-label="Guide" title="Guide">

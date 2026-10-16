@@ -18,7 +18,8 @@ src/
 │   ├── menus.ts       The right-click menu (Add to queue, Play next, Queue all YouTube links here)
 │   └── store.ts       Serialized persistence, session bookkeeping, 1.0 → 1.1 migration
 ├── content/           Runs on www.youtube.com; mounts the panel in the player tab only,
-│                      reports playback position there (watchProgress.ts); Alt+click everywhere
+│                      reports playback position there (watchProgress.ts), pauses at the
+│                      Stop point (stopPoint.ts); Alt+click everywhere
 ├── sidebar/           The in-page queue panel (Shadow DOM, styles inlined)
 ├── popup/ options/    Extension pages
 └── ui/                Design system (theme.css) and shared components

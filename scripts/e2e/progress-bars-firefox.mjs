@@ -50,7 +50,7 @@ try {
 
   // ── Updates while playing, without the list re-rendering ──
   await panel(ff, `window.__cueOther = 0; window.__cueBar = 0;
-    new MutationObserver((list) => { for (const m of list) { const inBar = (m.target.closest?.('.progress') ?? m.target.parentElement?.closest('.progress')); if (inBar) window.__cueBar++; else window.__cueOther++; } })
+    new MutationObserver((list) => { for (const m of list) { const inBar = (m.target.closest?.('.progress, .time-left') ?? m.target.parentElement?.closest('.progress, .time-left')); if (inBar) window.__cueBar++; else window.__cueOther++; } })
       .observe(root, { subtree: true, childList: true, attributes: true, characterData: true }); return true;`);
   await video(ff, 'v.play(); return true');
   const moved = await until(async () => (await bar(V0))?.percent > half.percent + 2, 30000, 1000);

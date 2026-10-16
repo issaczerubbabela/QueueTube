@@ -2,6 +2,11 @@
 
 What changed in each version of Cue, newest first. This file is shown in Cue's settings under **What's new**.
 
+## 1.4.0
+
+- **Stop after this**: choose it in a video's ⋮ menu and playback pauses when that video ends, instead of moving on. The row says "Stops after this". It clears itself once it has stopped playback, and there's only ever one.
+- The panel header shows when the queue will finish: "1 h 12 min left · ends 10:42 PM".
+
 ## 1.3.0
 
 - **Pick up where you left off.** Cue remembers how far you got into each video and resumes from there whenever it plays it again, even after a browser restart. A link with a time in it (`t=1m30s`) starts at that time instead. Videos you've barely started, or have finished, start from the beginning.

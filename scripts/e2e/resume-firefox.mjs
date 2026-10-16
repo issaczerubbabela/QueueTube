@@ -52,9 +52,10 @@ try {
   check('pausing at 1:15 saves the position', saved && saved.position >= 70 && saved.position <= 80, saved);
   check('…with the video length', saved && Math.abs(saved.duration - 212) <= 3, saved?.duration);
 
-  // Count changes to the panel while positions are written, except to progress bars (#10).
+  // Count changes to the panel while positions are written, except to progress bars (#10) and
+  // the time left in the header (#13), which follow the position on purpose.
   await panel(ff, `window.__cueMutations = 0;
-    new MutationObserver((list) => { window.__cueMutations += list.filter((m) => !(m.target.closest?.('.progress') ?? m.target.parentElement?.closest('.progress'))).length; })
+    new MutationObserver((list) => { window.__cueMutations += list.filter((m) => !(m.target.closest?.('.progress, .time-left') ?? m.target.parentElement?.closest('.progress, .time-left'))).length; })
       .observe(root, { subtree: true, childList: true, attributes: true, characterData: true }); return true;`);
   await video(ff, 'v.play(); return true');
   const before = (await progress(V0))?.updatedAt ?? 0;

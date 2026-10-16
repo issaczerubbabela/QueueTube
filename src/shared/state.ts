@@ -20,6 +20,7 @@ export function readQueue(raw: unknown): Queue {
     currentId: q.currentId ?? null,
     nowPlaying: q.nowPlaying ?? null,
     history: Array.isArray(q.history) ? q.history : EMPTY_QUEUE.history,
+    stopAfterId: typeof q.stopAfterId === 'string' ? q.stopAfterId : null,
   };
 }
 

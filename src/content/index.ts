@@ -8,6 +8,7 @@ import type { RoleQuery, TabMessage } from '../shared/messages';
 import { send } from '../shared/messages';
 import { Sidebar } from '../sidebar/Sidebar';
 import { listenForAltClicks } from './altClick';
+import { cancelAutoplay, pauseAtStopPoint } from './stopPoint';
 import { reportWatchProgress } from './watchProgress';
 import sidebarCss from '../sidebar/sidebar.css?inline';
 
@@ -126,6 +127,7 @@ document.addEventListener(
 window.addEventListener('yt-navigate-finish', schedulePlacement);
 
 reportWatchProgress(() => isPlayer);
+pauseAtStopPoint(() => isPlayer);
 
 // Every YouTube tab, not just the player: Alt+click a video link to queue it.
 listenForAltClicks(HOST_ID);
@@ -137,6 +139,10 @@ browser.runtime.onMessage.addListener((message: unknown) => {
   if (msg?.type === 'ping') return Promise.resolve(true);
   if (msg?.type === 'role') {
     setRole(msg.isPlayer);
+    return Promise.resolve(true);
+  }
+  if (msg?.type === 'stopped') {
+    if (isPlayer) cancelAutoplay();
     return Promise.resolve(true);
   }
   return undefined;

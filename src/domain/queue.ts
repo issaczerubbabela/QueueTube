@@ -24,6 +24,8 @@ export interface Queue {
   /** The video the player tab is showing, whether or not it is queued. */
   nowPlaying: string | null;
   history: HistoryItem[];
+  /** The Stop point: the entry after which playback pauses instead of Advancing. */
+  stopAfterId: string | null;
 }
 
 export interface Settings {
@@ -38,7 +40,7 @@ export interface Settings {
   skipWatched: boolean;
 }
 
-export const EMPTY_QUEUE: Queue = { entries: [], currentId: null, nowPlaying: null, history: [] };
+export const EMPTY_QUEUE: Queue = { entries: [], currentId: null, nowPlaying: null, history: [], stopAfterId: null };
 
 export const DEFAULT_SETTINGS: Settings = {
   autoQueue: true,
@@ -70,6 +72,10 @@ export const systemClock: Clock = {
 };
 
 const stay = (queue: Queue): Step => ({ queue, play: null });
+
+/** Drops the Stop point when its entry has left the queue. */
+const keepStop = (queue: Queue): Queue =>
+  queue.stopAfterId === null || queue.entries.some((e) => e.id === queue.stopAfterId) ? queue : { ...queue, stopAfterId: null };
 
 /** No videos: the default for the Watched videos an operation passes over. */
 const NONE: ReadonlySet<string> = new Set();
@@ -144,7 +150,7 @@ export function remove(queue: Queue, entryId: string): Queue {
   // so "next" still plays that one.
   const currentId =
     queue.currentId === entryId ? (entries[index - 1]?.id ?? null) : queue.currentId;
-  return { ...queue, entries, currentId };
+  return keepStop({ ...queue, entries, currentId });
 }
 
 /** Moves an entry so it ends up at `toIndex` in the resulting list. */
@@ -168,7 +174,7 @@ export function playNextInLine(queue: Queue, entryId: string): Queue {
 }
 
 export function clear(queue: Queue): Queue {
-  return { ...queue, entries: [], currentId: null };
+  return { ...queue, entries: [], currentId: null, stopAfterId: null };
 }
 
 /**
@@ -180,7 +186,7 @@ export function clearWatched(queue: Queue, watched: ReadonlySet<string>): Queue 
   const index = currentIndex(queue);
   const entries = queue.entries.filter((e) => !watched.has(e.videoId));
   const keptBefore = queue.entries.slice(0, index + 1).filter((e) => !watched.has(e.videoId));
-  return { ...queue, entries, currentId: keptBefore[keptBefore.length - 1]?.id ?? null };
+  return keepStop({ ...queue, entries, currentId: keptBefore[keptBefore.length - 1]?.id ?? null });
 }
 
 export function clearHistory(queue: Queue): Queue {
@@ -209,12 +215,12 @@ export function advance(queue: Queue, settings: Settings, clock: Clock = systemC
   if (!next) {
     if (!current || !settings.removeAfterPlaying) return stay(queue);
     // The last entry finished: it leaves the queue, and nothing else plays.
-    return stay({
+    return stay(keepStop({
       ...queue,
       entries: queue.entries.filter((e) => e.id !== current.id),
       history: recordHistory(queue.history, current, clock.now()),
       currentId: null,
-    });
+    }));
   }
 
   let entries = queue.entries;
@@ -223,7 +229,35 @@ export function advance(queue: Queue, settings: Settings, clock: Clock = systemC
     history = recordHistory(history, current, clock.now());
     if (settings.removeAfterPlaying) entries = entries.filter((e) => e.id !== current.id);
   }
-  return { queue: { ...queue, entries, history, currentId: next.id }, play: next.videoId };
+  return { queue: keepStop({ ...queue, entries, history, currentId: next.id }), play: next.videoId };
+}
+
+// ── Stop point ───────────────────────────────────────────────────────────────
+
+/** Sets the Stop point to an entry, replacing any other, or clears it with null. */
+export function setStopPoint(queue: Queue, entryId: string | null): Queue {
+  if (entryId !== null && !queue.entries.some((e) => e.id === entryId)) return queue;
+  return queue.stopAfterId === entryId ? queue : { ...queue, stopAfterId: entryId };
+}
+
+/** True when the current entry is the Stop point: playback pauses once its video ends. */
+export function stopsHere(queue: Queue): boolean {
+  return queue.stopAfterId !== null && queue.stopAfterId === queue.currentId;
+}
+
+/**
+ * The current video ended. At the Stop point playback stays paused and the Stop point clears
+ * itself; otherwise the queue Advances if Auto-advance is on.
+ */
+export function videoEnded(
+  queue: Queue,
+  settings: Settings,
+  clock: Clock = systemClock,
+  watched: ReadonlySet<string> = NONE
+): Step & { stopped: boolean } {
+  if (stopsHere(queue)) return { queue: { ...queue, stopAfterId: null }, play: null, stopped: true };
+  if (!settings.autoAdvance) return { ...stay(queue), stopped: false };
+  return { ...advance(queue, settings, clock, watched), stopped: false };
 }
 
 /** Moves to the previous entry, or brings the last history item back to the front. */
@@ -284,6 +318,7 @@ export function describe(queue: Queue, videoId: string, details: Partial<Video>)
 
 /** What Undo needs: the entries and current entry before a change, and where the change left the cursor. */
 export interface UndoSnapshot extends Pick<Queue, 'entries' | 'currentId'> {
+  stopAfterId?: string | null;
   /** The current entry right after the change; if it is still current, nothing has played since. */
   currentAfter?: string | null;
 }
@@ -298,10 +333,29 @@ export function restore(queue: Queue, before: UndoSnapshot): Queue {
   const entries = [...before.entries, ...addedSince];
   const movedOn =
     queue.currentId !== null && queue.currentId !== (before.currentAfter ?? null) && entries.some((e) => e.id === queue.currentId);
-  return { ...queue, entries, currentId: movedOn ? queue.currentId : before.currentId };
+  // A Stop point the change removed comes back too, unless another has been set since.
+  const stopAfterId = queue.stopAfterId ?? before.stopAfterId ?? null;
+  return { ...queue, entries, currentId: movedOn ? queue.currentId : before.currentId, stopAfterId };
 }
 
 /** Total seconds of known durations for the upcoming entries. */
 export function remainingSeconds(queue: Queue): number {
   return upcoming(queue).reduce((sum, e) => sum + (e.durationSec ?? 0), 0);
+}
+
+/**
+ * Seconds until the queue finishes: what is left of the current video while it is on screen
+ * (`positionSec` in), plus the upcoming entries. Unknown lengths count as zero.
+ */
+export function secondsLeft(queue: Queue, positionSec: number | null = null): number {
+  const current = currentEntry(queue);
+  const rest = remainingSeconds(queue);
+  if (!current?.durationSec || !isCurrentPlaying(queue)) return rest;
+  return rest + Math.max(0, current.durationSec - (positionSec ?? 0));
+}
+
+/** When the queue will finish (a timestamp), or null when nothing is left. */
+export function endsAt(queue: Queue, positionSec: number | null = null, clock: Pick<Clock, 'now'> = systemClock): number | null {
+  const seconds = secondsLeft(queue, positionSec);
+  return seconds > 0 ? clock.now() + seconds * 1000 : null;
 }
