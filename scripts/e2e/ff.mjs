@@ -216,6 +216,13 @@ class Firefox {
     await this.send('WebDriver:PerformActions', { actions: [{ type: 'key', id: 'kbd', actions }] });
     await this.send('WebDriver:ReleaseActions');
   }
+  /** Types text, one key press per character, into whatever has focus. */
+  async typeText(text) {
+    await this.content();
+    const actions = [...text].flatMap((value) => [{ type: 'keyDown', value }, { type: 'keyUp', value }]);
+    await this.send('WebDriver:PerformActions', { actions: [{ type: 'key', id: 'kbd', actions }] });
+    await this.send('WebDriver:ReleaseActions');
+  }
   async center(selector) {
     return this.eval(`const el = document.querySelector(arguments[0]); if (!el) throw new Error('no ' + arguments[0] + ' on ' + location.href); el.scrollIntoView({block:'center'}); const r = el.getBoundingClientRect(); return { x: r.x + Math.min(20, r.width / 2), y: r.y + r.height / 2 };`, [selector]);
   }

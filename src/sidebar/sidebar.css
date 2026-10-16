@@ -181,6 +181,60 @@
 .list[aria-label='History'] .lead {
   width: 16px;
 }
+/* While filtering there is nothing to drag: keep the numbers, which are the queue positions. */
+.list.filtered .lead {
+  cursor: default;
+}
+.list.filtered .grip {
+  display: none;
+}
+.list.filtered .row:hover .lead > *,
+.list.filtered .row:focus-visible .lead > * {
+  opacity: 1;
+}
+
+/* A search box like YouTube's, above the queue. */
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  margin: 4px 12px 8px;
+  padding: 0 4px 0 12px;
+  border: 1px solid var(--outline);
+  border-radius: 18px;
+  color: var(--text-2);
+}
+.filter:focus-within {
+  border-color: var(--link);
+}
+.filter > svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.filter input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--text);
+}
+.filter input::placeholder {
+  color: var(--text-2);
+}
+.filter .icon-btn {
+  width: 28px;
+  height: 28px;
+}
+.filter-empty {
+  margin: 8px 16px;
+  font-size: 14px;
+  color: var(--text-2);
+}
 
 .meta {
   display: flex;

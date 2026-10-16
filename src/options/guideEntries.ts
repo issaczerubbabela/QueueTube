@@ -129,6 +129,10 @@ export const GUIDE: GuideGroup[] = [
         text: "Choose Play next, Move to top or Move to bottom in a video's ⋮ menu.",
       },
       {
+        title: 'Filter',
+        text: "Type in the box above the queue to show only videos whose title or channel matches. Esc clears it. Reordering is off while filtering; playing and removing still work.",
+      },
+      {
         title: 'Sort and shuffle',
         text: "Choose Shortest first, Longest first, By channel or Shuffle in the panel's ⋮ menu to rearrange the videos after the one playing. Undo puts your order back.",
       },

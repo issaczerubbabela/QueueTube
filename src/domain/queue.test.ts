@@ -17,6 +17,7 @@ import {
   goBack,
   isCurrentPlaying,
   jumpTo,
+  matchesFilter,
   move,
   nextEntry,
   playNextInLine,
@@ -498,5 +499,21 @@ group('sort and shuffle', () => {
     const before = sample(2);
     const after = sortUpcoming(before, 'longest');
     expect(restore(after, { ...before, currentAfter: after.currentId })).toEqual(before);
+  });
+});
+
+group('matchesFilter', () => {
+  const v = { title: 'Despacito ft. Daddy Yankee', channel: 'Luis Fonsi' };
+
+  it('matches the title or the channel, ignoring case', () => {
+    expect(matchesFilter(v, 'despacito')).toBe(true);
+    expect(matchesFilter(v, 'FONSI')).toBe(true);
+    expect(matchesFilter(v, 'queen')).toBe(false);
+  });
+
+  it('ignores accents and surrounding spaces, and matches everything when empty', () => {
+    expect(matchesFilter({ title: 'Café del Mar', channel: '' }, '  cafe ')).toBe(true);
+    expect(matchesFilter(v, '')).toBe(true);
+    expect(matchesFilter(v, '   ')).toBe(true);
   });
 });

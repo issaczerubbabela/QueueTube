@@ -232,6 +232,15 @@ export function advance(queue: Queue, settings: Settings, clock: Clock = systemC
   return { queue: keepStop({ ...queue, entries, history, currentId: next.id }), play: next.videoId };
 }
 
+// ── Filter ───────────────────────────────────────────────────────────────────
+
+/** True when a video's title or channel contains `text`, ignoring case and accents. Empty text matches all. */
+export function matchesFilter(video: Pick<Video, 'title' | 'channel'>, text: string): boolean {
+  const fold = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase();
+  const needle = fold(text.trim());
+  return needle === '' || fold(video.title).includes(needle) || fold(video.channel).includes(needle);
+}
+
 // ── Sort and shuffle ─────────────────────────────────────────────────────────
 
 export type SortOrder = 'shortest' | 'longest' | 'channel';

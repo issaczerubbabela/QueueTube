@@ -61,6 +61,14 @@ function mount() {
   // Page styles outrank :host rules, so spacing against YouTube's list is set inline.
   host.style.marginBottom = '16px';
   const shadow = host.attachShadow({ mode: 'open' });
+  // Keys typed into the panel's text fields must not reach YouTube's shortcuts (k pauses, f goes
+  // full screen…): past the shadow root they look like keys pressed on the page. React has
+  // handled them by the time they get here.
+  for (const type of ['keydown', 'keypress', 'keyup']) {
+    shadow.addEventListener(type, (event) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) event.stopPropagation();
+    });
+  }
   const style = document.createElement('style');
   style.textContent = sidebarCss;
   const mountPoint = document.createElement('div');
