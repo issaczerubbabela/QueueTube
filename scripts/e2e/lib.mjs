@@ -5,6 +5,7 @@
 //   FIREFOX            path to the Firefox executable (default: the usual install location)
 //   CUE_DIST           the built extension (default: <repo>/dist; run `npm run build` first)
 //   CUE_E2E_PROFILES   where test profiles go (default: scripts/e2e/.profiles, git-ignored)
+//   CUE_E2E_SHOTS      where screenshots go (default: scripts/e2e/.profiles/screenshots)
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
@@ -14,6 +15,8 @@ export const S = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(S, '../..');
 export const DIST = process.env.CUE_DIST ?? path.join(ROOT, 'dist');
 export const PROFILES = process.env.CUE_E2E_PROFILES ?? path.join(S, '.profiles');
+/** Screenshots for a person to look at (themes, layout). */
+export const SHOTS = process.env.CUE_E2E_SHOTS ?? path.join(S, '.profiles', 'screenshots');
 export const FIREFOX =
   process.env.FIREFOX ??
   (process.platform === 'win32'
@@ -163,4 +166,21 @@ export async function openFresh(ff, url, back) {
   const closed = await until(async () => !(await ff.handles()).includes(tab), 15000);
   await ff.switchTo(back);
   return Boolean(closed);
+}
+
+/** Saves a screenshot of the current tab's viewport (with the panel scrolled into view) and returns its path. */
+export async function screenshot(ff, name) {
+  await panel(ff, `document.querySelector('#queuetube-host').scrollIntoView({ block: 'start' }); return true;`);
+  await sleep(400);
+  const { value } = await ff.send('WebDriver:TakeScreenshot', { full: false, hash: false });
+  fs.mkdirSync(SHOTS, { recursive: true });
+  const file = path.join(SHOTS, `${name}.png`);
+  fs.writeFileSync(file, Buffer.from(value, 'base64'));
+  return file;
+}
+
+/** Switches YouTube (and so the panel) between its light and dark theme. */
+export async function setTheme(ff, theme) {
+  await ff.eval(`document.documentElement.toggleAttribute('dark', ${theme === 'dark'}); return true`);
+  return until(() => ff.eval(`return document.querySelector('#queuetube-host')?.dataset.theme === '${theme}'`), 5000);
 }

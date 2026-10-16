@@ -1,18 +1,34 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { watchedFraction } from '../domain/progress';
 import type { Video } from '../domain/queue';
 import { formatDuration, thumbnailUrl } from '../domain/youtube';
+import { useWatchProgress } from '../shared/state';
 
 /** Shown wherever the queue is empty: the two quickest ways to add a video. */
 export const EMPTY_QUEUE_HINT = 'Middle-click or Alt+click any video to queue it.';
 
-export function Thumb({ video, width }: { video: Video; width: number }) {
+/** A video's thumbnail with its length, and optionally how much of it has been watched. */
+export function Thumb({ video, width, progress = false }: { video: Video; width: number; progress?: boolean }) {
   const duration = formatDuration(video.durationSec);
   return (
     <div className="thumb" style={{ width }}>
       <img src={thumbnailUrl(video.videoId)} alt="" loading="lazy" decoding="async" draggable={false} />
       {duration && <span className="duration">{duration}</span>}
+      {progress && <WatchBar video={video} />}
     </div>
+  );
+}
+
+/** YouTube's red bar along the bottom of a thumbnail: Watch progress, full once Watched. */
+function WatchBar({ video }: { video: Video }) {
+  const fraction = watchedFraction(useWatchProgress(video.videoId), video.durationSec);
+  if (fraction <= 0) return null;
+  const percent = Math.round(fraction * 1000) / 10;
+  return (
+    <span className="progress" aria-hidden="true" data-percent={percent}>
+      <span style={{ width: `${percent}%` }} />
+    </span>
   );
 }
 

@@ -315,6 +315,25 @@ button:disabled {
   background: rgba(0, 0, 0, 0.6);
   font-variant-numeric: tabular-nums;
 }
+/* Watch progress, as on YouTube's own thumbnails. It sits on the image, so the same colours read
+   in both themes; the length badge moves up out of its way. */
+.thumb .progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.45);
+}
+.thumb .progress > span {
+  display: block;
+  height: 100%;
+  background: #f03;
+  transition: width 0.3s linear;
+}
+.thumb:has(.progress) .duration {
+  bottom: 7px;
+}
 
 .skeleton {
   display: inline-block;

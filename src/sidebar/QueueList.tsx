@@ -184,7 +184,7 @@ export function QueueList({ queue, onRemoved, onDropMessage }: Props) {
                   <path d="M4 9h16M4 15h16" />
                 </svg>
               </span>
-              <Thumb video={entry} width={100} />
+              <Thumb video={entry} width={100} progress />
               <span className="meta">
                 <Title video={entry} className="title" />
                 <span className="channel">{entry.channel || ' '}</span>

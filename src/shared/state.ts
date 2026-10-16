@@ -1,5 +1,5 @@
 // Persisted state layout and a read-only React view of it for UI surfaces.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import browser from 'webextension-polyfill';
 import type { Progress, ProgressMap } from '../domain/progress';
 import { DEFAULT_SETTINGS, EMPTY_QUEUE, Queue, Settings } from '../domain/queue';
@@ -93,4 +93,43 @@ export function useExtensionState(): ExtensionState {
   }, []);
 
   return state;
+}
+
+// ── Watch progress: one subscription per page, read per video ──────────────
+
+let progressMap: ProgressMap = {};
+const progressListeners = new Set<() => void>();
+let progressStarted = false;
+
+const sameProgress = (a: Progress | undefined, b: Progress) =>
+  a !== undefined && a.position === b.position && a.duration === b.duration && a.watched === b.watched;
+
+function updateProgress(next: ProgressMap) {
+  // Keep unchanged records as the same objects, so only the bars whose video moved re-render.
+  const merged: ProgressMap = {};
+  for (const [videoId, p] of Object.entries(next)) merged[videoId] = sameProgress(progressMap[videoId], p) ? progressMap[videoId] : p;
+  progressMap = merged;
+  progressListeners.forEach((listener) => listener());
+}
+
+function subscribeProgress(listener: () => void) {
+  if (!progressStarted) {
+    progressStarted = true;
+    browser.storage.local.get(KEYS.progress).then((stored) => updateProgress(readProgress(stored[KEYS.progress])));
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && KEYS.progress in changes) updateProgress(readProgress(changes[KEYS.progress].newValue));
+    });
+  }
+  progressListeners.add(listener);
+  return () => {
+    progressListeners.delete(listener);
+  };
+}
+
+/**
+ * Live, read-only Watch progress for one video. Position writes re-render only the components
+ * reading the video that moved, never the whole queue.
+ */
+export function useWatchProgress(videoId: string): Progress | undefined {
+  return useSyncExternalStore(subscribeProgress, () => progressMap[videoId]);
 }
