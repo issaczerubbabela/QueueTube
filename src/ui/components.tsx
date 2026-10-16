@@ -32,6 +32,8 @@ export interface MenuItem {
   onSelect: () => void;
   disabled?: boolean;
   danger?: boolean;
+  /** Draws attention, like the What's new notice. */
+  accent?: boolean;
 }
 export type MenuEntry = MenuItem | 'separator';
 
@@ -124,7 +126,7 @@ export function Menu({
           <button
             key={item.label}
             role="menuitem"
-            className={`menu-item${item.danger ? ' danger' : ''}`}
+            className={`menu-item${item.danger ? ' danger' : ''}${item.accent ? ' accent' : ''}`}
             disabled={item.disabled}
             onClick={() => {
               onClose();

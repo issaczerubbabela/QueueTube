@@ -8,11 +8,14 @@ import {
   ListVideo,
   Settings as SettingsIcon,
   SkipBack,
+  Sparkles,
   SkipForward,
   Trash2,
   Upload,
   Download,
 } from 'lucide-react';
+import browser from 'webextension-polyfill';
+import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
 import { playlistUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
@@ -26,7 +29,7 @@ import { QueueList } from './QueueList';
 type Tab = 'queue' | 'history';
 
 export function Sidebar() {
-  const { ready, queue, settings } = useExtensionState();
+  const { ready, queue, settings, lastSeenVersion } = useExtensionState();
   const [tab, setTab] = useState<Tab>('queue');
   const menu = useMenu();
   const { toast, show, dismiss } = useToast();
@@ -40,6 +43,7 @@ export function Sidebar() {
   const total = queue.entries.length;
   const remaining = formatRemaining(Q.remainingSeconds(queue));
   const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
+  const whatsNew = whatsNewVersion(lastSeenVersion, browser.runtime.getManifest().version);
 
   const setCollapsed = (sidebarCollapsed: boolean) => send({ type: 'settings/update', patch: { sidebarCollapsed } });
 
@@ -112,9 +116,9 @@ export function Sidebar() {
               <SkipForward />
             </button>
             <button
-              className="icon-btn"
+              className={`icon-btn${whatsNew ? ' has-dot' : ''}`}
               onClick={menu.toggle}
-              aria-label="Queue options"
+              aria-label={whatsNew ? `Queue options (what's new in ${whatsNew})` : 'Queue options'}
               aria-haspopup="menu"
               aria-expanded={menu.anchor !== null}
             >
@@ -168,6 +172,17 @@ export function Sidebar() {
           label="Queue options"
           onClose={menu.close}
           items={[
+            ...(whatsNew
+              ? [
+                  {
+                    label: `What's new in ${whatsNew}`,
+                    icon: <Sparkles />,
+                    accent: true,
+                    onSelect: () => send({ type: 'options/open', section: 'whats-new' }),
+                  },
+                  'separator' as const,
+                ]
+              : []),
             { label: 'Gather open tabs', icon: <Layers />, onSelect: gather },
             { label: 'Import from file…', icon: <Upload />, onSelect: () => fileInput.current?.click() },
             { label: 'Export to file', icon: <Download />, disabled: total === 0, onSelect: () => exportQueue(queue.entries) },

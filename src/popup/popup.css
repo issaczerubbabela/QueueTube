@@ -183,6 +183,11 @@ hr {
   stroke-width: 1.5;
   flex-shrink: 0;
 }
+.item.whats-new {
+  width: 100%;
+  font-weight: 500;
+  color: var(--link);
+}
 .item-text {
   flex: 1;
 }

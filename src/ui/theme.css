@@ -366,6 +366,25 @@ button:disabled {
 .menu-item.danger {
   color: var(--danger);
 }
+.menu-item.accent {
+  font-weight: 500;
+  color: var(--link);
+}
+
+/* A small dot on a button whose menu has something new in it. */
+.has-dot {
+  position: relative;
+}
+.has-dot::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--link);
+}
 .menu-sep {
   height: 1px;
   margin: 8px 0;

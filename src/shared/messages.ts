@@ -22,8 +22,12 @@ export type Command =
   | { type: 'tabs/gather' }
   | { type: 'tabs/openFree'; url: string }
   | { type: 'settings/update'; patch: Partial<Settings> }
-  | { type: 'options/open' }
+  | { type: 'options/open'; section?: OptionsSection }
+  | { type: 'whatsNew/seen' }
   | { type: 'status' };
+
+/** Sections of the settings page that other surfaces link to. */
+export type OptionsSection = 'whats-new';
 
 export interface Status {
   playerTabId: number | null;

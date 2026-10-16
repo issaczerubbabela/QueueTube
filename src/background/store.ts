@@ -33,6 +33,10 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await browser.storage.local.set({ [KEYS.settings]: settings });
 }
 
+export async function saveLastSeenVersion(version: string): Promise<void> {
+  await browser.storage.local.set({ [KEYS.lastSeenVersion]: version });
+}
+
 // ── Session state: forgotten when the browser restarts, kept while the worker sleeps ──
 
 export interface TabBook {

@@ -8,9 +8,11 @@ import {
   Settings as SettingsIcon,
   SkipBack,
   SkipForward,
+  Sparkles,
   SquarePlay,
 } from 'lucide-react';
 import browser from 'webextension-polyfill';
+import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
 import { Status, send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
@@ -22,7 +24,7 @@ const UP_NEXT_LIMIT = 2;
 
 /** Laid out like YouTube's own dropdown menus: a header, then 40px icon rows between dividers. */
 export function Popup() {
-  const { ready, queue, settings } = useExtensionState();
+  const { ready, queue, settings, lastSeenVersion } = useExtensionState();
   const [status, setStatus] = useState<Status | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -39,6 +41,7 @@ export function Popup() {
   const total = queue.entries.length;
   const remaining = formatRemaining(Q.remainingSeconds(queue));
   const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
+  const whatsNew = whatsNewVersion(lastSeenVersion, browser.runtime.getManifest().version);
   // What the player shows, with whatever details we know about it.
   const nowVideo: Q.Video | null = queue.nowPlaying
     ? [...queue.entries, ...queue.history].find((v) => v.videoId === queue.nowPlaying) ??
@@ -49,6 +52,11 @@ export function Popup() {
     const { gathered } = await send({ type: 'tabs/gather' });
     setNotice(gathered ? `Gathered ${gathered} ${gathered === 1 ? 'tab' : 'tabs'}` : 'No other YouTube video tabs open');
     refreshStatus();
+  };
+
+  const openWhatsNew = async () => {
+    await send({ type: 'options/open', section: 'whats-new' });
+    window.close();
   };
 
   const goToPlayer = async () => {
@@ -68,6 +76,13 @@ export function Popup() {
           <SettingsIcon />
         </button>
       </header>
+
+      {whatsNew && (
+        <button className="item whats-new" onClick={openWhatsNew}>
+          <Sparkles aria-hidden="true" />
+          What's new in {whatsNew}
+        </button>
+      )}
 
       <hr />
 

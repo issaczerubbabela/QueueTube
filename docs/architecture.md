@@ -6,7 +6,8 @@ Vocabulary (player tab, entry, current entry, fresh tab, auto-queue, gather) is 
 src/
 ├── domain/            Pure, browser-free, unit-tested
 │   ├── queue.ts       The queue model: enqueue, advance, goBack, move, playerShowing…
-│   └── youtube.ts     What counts as YouTube; URL → video id; oEmbed/duration lookups
+│   ├── youtube.ts     What counts as YouTube; URL → video id; oEmbed/duration lookups
+│   └── changelog.ts   CHANGELOG.md → versions of headings and bullets for What's new
 ├── shared/
 │   ├── messages.ts    The Command protocol (UI/content → background)
 │   └── state.ts       Storage layout + useExtensionState(), a read-only React view
@@ -28,6 +29,8 @@ src/
 4. Every surface re-renders from `storage.onChanged`.
 
 Tab bookkeeping (player tab id, fresh tabs, free tabs, undo snapshot) lives in `storage.session`: it survives the MV3 worker sleeping but is forgotten when the browser restarts, when tab ids become meaningless.
+
+`CHANGELOG.md` at the repo root is the only source for the settings page's What's new section: the build bundles it (`?raw`) and `domain/changelog.ts` parses it. The `lastSeenVersion` key in `storage.local` drives the What's new notice; a fresh install sets it on the `install` event, so only updates show the notice.
 
 ## Testing
 

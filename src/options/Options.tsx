@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import browser from 'webextension-polyfill';
+import { whatsNewVersion } from '../domain/changelog';
 import type { Settings } from '../domain/queue';
 import { send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
 import { exportQueue, importQueue, pluralVideos } from '../ui/transfer';
+import { WhatsNew } from './WhatsNew';
 
 type BooleanSetting = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
 
@@ -55,6 +57,7 @@ const SECTIONS = [
   { id: 'playback', label: 'Playback' },
   { id: 'shortcuts', label: 'Keyboard shortcuts' },
   { id: 'queue', label: 'Your queue' },
+  { id: 'whats-new', label: "What's new" },
 ];
 
 function SettingRows({ rows, settings }: { rows: typeof QUEUE_SETTINGS; settings: Settings }) {
@@ -84,12 +87,14 @@ function SettingRows({ rows, settings }: { rows: typeof QUEUE_SETTINGS; settings
 
 /** Laid out like YouTube's own settings pages: a left nav, a headline, then titled sections of label/control rows. */
 export function Options() {
-  const { ready, queue, settings } = useExtensionState();
+  const { ready, queue, settings, lastSeenVersion } = useExtensionState();
   const [commands, setCommands] = useState<browser.Commands.Command[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [active, setActive] = useState(SECTIONS[0].id);
   const fileInput = useRef<HTMLInputElement>(null);
   const isFirefox = navigator.userAgent.includes('Firefox');
+  const version = browser.runtime.getManifest().version;
+  const unseen = whatsNewVersion(lastSeenVersion, version) !== null;
 
   useEffect(() => {
     browser.commands?.getAll().then(setCommands).catch(() => {});
@@ -112,6 +117,22 @@ export function Options() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [ready]);
 
+  // The page renders after state loads, too late for the browser's own jump to a #section.
+  useEffect(() => {
+    if (ready) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  }, [ready]);
+
+  // Reading the changelog clears the What's new notice in the popup and panel.
+  useEffect(() => {
+    const section = ready && unseen ? document.getElementById('whats-new') : null;
+    if (!section) return;
+    const observer = new IntersectionObserver((seen) => {
+      if (seen.some((e) => e.isIntersecting)) send({ type: 'whatsNew/seen' });
+    });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [ready, unseen]);
+
   if (!ready) return null;
 
   const openShortcutSettings = () =>
@@ -124,7 +145,7 @@ export function Options() {
       <header className="masthead">
         <img src="/icons/icon48.png" alt="" className="logo" />
         <span className="wordmark">Cue</span>
-        <span className="version">{browser.runtime.getManifest().version}</span>
+        <span className="version">{version}</span>
       </header>
 
       <div className="layout">
@@ -220,6 +241,12 @@ export function Options() {
                 {notice}
               </p>
             )}
+          </section>
+
+          <section id="whats-new">
+            <h2>What's new</h2>
+            <p className="section-sub">What changed in each version of Cue</p>
+            <WhatsNew />
           </section>
         </main>
       </div>

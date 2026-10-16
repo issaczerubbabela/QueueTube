@@ -2,7 +2,7 @@
 import browser from 'webextension-polyfill';
 import * as Q from '../domain/queue';
 import { fetchDuration, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, watchUrl } from '../domain/youtube';
-import type { Command, RoleQuery, Status } from '../shared/messages';
+import type { Command, OptionsSection, RoleQuery, Status } from '../shared/messages';
 import { currentPlayer, electPlayer, focusPlayer, focusTab, loadVideo, setPlayer } from './player';
 import {
   TabBook,
@@ -13,6 +13,7 @@ import {
   loadUndo,
   migrateLegacyState,
   saveBook,
+  saveLastSeenVersion,
   saveQueue,
   saveSettings,
   saveUndo,
@@ -187,6 +188,20 @@ async function status(): Promise<Status> {
   return { playerTabId, claimableTabId: claimable ? active.id! : null, canUndo: (await loadUndo()) !== null };
 }
 
+/** Opens the settings page, scrolled to a section when one is given. Reuses an open settings tab. */
+async function openOptions(section?: OptionsSection): Promise<void> {
+  if (!section) return browser.runtime.openOptionsPage();
+  const page = browser.runtime.getURL('src/options/index.html');
+  const url = `${page}#${section}`;
+  const existing = (await browser.tabs.query({})).find((t) => t.url?.startsWith(page));
+  if (existing?.id === undefined) {
+    await browser.tabs.create({ url });
+    return;
+  }
+  await browser.tabs.update(existing.id, { url });
+  await focusTab(existing.id).catch(() => {});
+}
+
 async function handle(command: Command | RoleQuery, sender: browser.Runtime.MessageSender): Promise<unknown> {
   switch (command.type) {
     case 'tab/role': {
@@ -264,7 +279,9 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     }
 
     case 'options/open':
-      return browser.runtime.openOptionsPage();
+      return openOptions(command.section);
+    case 'whatsNew/seen':
+      return saveLastSeenVersion(browser.runtime.getManifest().version);
     case 'settings/update': {
       const settings = await loadSettings();
       return saveSettings({ ...settings, ...command.patch });
@@ -313,4 +330,9 @@ function onLaunch(isBrowserStart: boolean) {
 }
 
 browser.runtime.onStartup.addListener(() => onLaunch(true));
-browser.runtime.onInstalled.addListener(() => onLaunch(false));
+browser.runtime.onInstalled.addListener(({ reason }) => {
+  onLaunch(false);
+  // A fresh install has nothing new to announce. An update leaves the last version seen alone,
+  // so the What's new notice shows (including from 1.1.1, which never stored one).
+  if (reason === 'install') serial(() => saveLastSeenVersion(browser.runtime.getManifest().version));
+});
