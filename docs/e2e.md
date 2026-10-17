@@ -36,6 +36,12 @@ What each release's scripts check (the full list is `RELEASES` in `scripts/e2e/r
 | 1.3 | `resume-firefox` | #9 Watch progress and resume, including a browser restart and 1.2 data |
 | 1.3 | `progress-bars-firefox` | #10 Progress bars; saves light and dark screenshots |
 | 1.3 | `watched-firefox` | #11 Skip watched and Clear watched |
+| 1.4 | `stop-point-firefox` | #13 Stop point and ends-at time |
+| 1.4 | `sort-firefox` | #14 Sort and shuffle |
+| 1.4 | `filter-firefox` | #15 Filter, including that typing doesn't trigger YouTube's shortcuts |
+| 1.4 | `playlist-firefox` | #16 Queue a playlist, and its "check first": reading a playlist without sign-in, past the first page |
+
+`playlist-firefox` finds a short (one page, under 100 videos) and a long (several pages) public playlist in YouTube's search results. To pin them, set `CUE_E2E_PLAYLIST` and `CUE_E2E_BIG_PLAYLIST` to playlist ids. It saves the long playlist's page data to `<profiles>/playlist-capture.json`, which can replace the hand-written fixture in `src/domain/fixtures/`.
 
 The shared helpers are in `scripts/e2e/lib.mjs` (YouTube and panel helpers) and `scripts/e2e/ff.mjs` (the Marionette client). A browser restart is checked by quitting Firefox and relaunching it on the same profile (`launch(name, { keepProfile: true })`); prefs in `ff.mjs` keep a temporary add-on's storage across the reinstall.
 
