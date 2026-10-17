@@ -107,7 +107,9 @@ export const playing = async (ff) => new URL(await ff.url()).searchParams.get('v
 /** Waits for the main video to be playing real content (not an ad). Returns false on timeout. */
 export const playable = (ff, timeout = 45000) =>
   until(
-    () => ff.eval(`const v = document.querySelector('video.html5-main-video'); return Boolean(v && v.readyState >= 2 && !document.querySelector('#movie_player.ad-showing') && Number.isFinite(v.duration) && v.duration > 0 && (v.currentTime > 0.3 || v.paused))`),
+    // The page's own idea of the video must match its URL: right after the queue moves on, the tab
+    // can still show the previous (ended) video until it navigates.
+    () => ff.eval(`const v = document.querySelector('video.html5-main-video'); const id = new URLSearchParams(location.search).get('v'); const flexy = document.querySelector('ytd-watch-flexy')?.getAttribute('video-id'); return Boolean(v && id && flexy === id && !v.ended && v.readyState >= 2 && !document.querySelector('#movie_player.ad-showing') && Number.isFinite(v.duration) && v.duration > 0 && (v.currentTime > 0.3 || v.paused))`),
     timeout,
     400
   );
@@ -117,11 +119,33 @@ export const video = (ff, script = 'return { time: v.currentTime, duration: v.du
   ff.eval(`const v = document.querySelector('video.html5-main-video'); ${script}`);
 
 /** Seeks the player and pauses there, which makes Cue report the position. */
+/** Waits out an ad (pre-roll, or a mid-roll that seeking past an ad cue starts). Cue ignores ads. */
+/** While waiting it keeps the ad playing (a paused ad never ends) and skips it when YouTube allows. */
+export const waitNoAd = (ff, timeout = 90000) =>
+  until(
+    () => ff.eval(`if (!document.querySelector('#movie_player.ad-showing')) return true;
+      document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
+      const v = document.querySelector('video.html5-main-video'); if (v?.paused) v.play().catch(() => {});
+      return false;`),
+    timeout,
+    500
+  );
+
 export async function seekAndPause(ff, seconds) {
-  await video(ff, `v.currentTime = ${seconds}; return true`);
-  await until(() => video(ff, `return Math.abs(v.currentTime - ${seconds}) < 3 && v.readyState >= 2`), 15000);
-  await video(ff, 'v.pause(); return true');
-  await sleep(800);
+  // YouTube sometimes resumes a paused video by itself (e.g. when its window gets focus back after
+  // the harness reads storage in another window), and seeking past an ad cue starts a mid-roll ad,
+  // so settle and re-check before trusting it.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await waitNoAd(ff);
+    await video(ff, `v.currentTime = ${seconds}; return true`);
+    await sleep(500);
+    await waitNoAd(ff);
+    await until(() => video(ff, `return Math.abs(v.currentTime - ${seconds}) < 3 && v.readyState >= 2`), 15000);
+    await video(ff, 'v.pause(); return true');
+    await sleep(800);
+    if (await video(ff, `return v.paused && Math.abs(v.currentTime - ${seconds}) < 3`)) return true;
+  }
+  return false;
 }
 
 /** Runs `script` in the queue panel's shadow root (`root`), returning its value. */

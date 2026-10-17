@@ -56,8 +56,9 @@ try {
   // ── What counts as Watched ──
   await jump(SHORT);
   await video(ff, 'v.currentTime = Math.max(0, v.duration - 1.5); v.play(); return true');
-  check('a video that ends is Watched', await until(() => isWatched(SHORT), 20000));
+  check('a video that ends is Watched', await until(() => isWatched(SHORT), 90000));
   check('…and the queue moved on to the next entry (Skip watched is off by default)', await until(async () => (await currentVideo(ff)) === V2, 15000));
+  await until(async () => new URL(await ff.url()).searchParams.get('v') === V2, 20000);
   await playable(ff);
   await seekAndPause(ff, 230);
   check('a video seen to 90% is Watched', await until(() => isWatched(V2), 8000));
@@ -89,8 +90,8 @@ try {
 
   await jump(V0);
   await video(ff, 'v.currentTime = v.duration - 2; v.play(); return true');
-  check('a video ending passes over Watched entries too', await until(async () => (await currentVideo(ff)) === V3, 25000), await currentVideo(ff));
-  check('the next button skips them as well (enabled only with an unwatched entry ahead)', await panel(ff, `return root.querySelector('button[aria-label="Play next"]').disabled === true`));
+  check('a video ending passes over Watched entries too', await until(async () => (await currentVideo(ff)) === V3, 90000), await currentVideo(ff));
+  check('the next button skips them as well (enabled only with an unwatched entry ahead)', await until(() => panel(ff, `return root.querySelector('button[aria-label="Play next"]')?.disabled === true`), 5000));
   await playable(ff);
 
   // ── Clear watched, and Undo ──
