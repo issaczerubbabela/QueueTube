@@ -26,6 +26,16 @@ Settings, as environment variables:
 | `CUE_DIST` | `<repo>/dist` | the built extension |
 | `CUE_E2E_PROFILES` | `scripts/e2e/.profiles` (git-ignored) | throwaway Firefox profiles |
 | `CUE_E2E_PREFS` | none | extra Firefox prefs as JSON, e.g. `{"network.proxy.type": 0}` |
+| `CUE_E2E_SHOTS` | `scripts/e2e/.profiles/screenshots` | screenshots some scripts save for a person to look at |
+
+What each release's scripts check (the full list is `RELEASES` in `scripts/e2e/run.mjs`):
+
+| Release | Script | Ticket |
+|---|---|---|
+| 1.2 | `menu-firefox`, `alt-firefox`, `drop-firefox` | #4, #5, #6 |
+| 1.3 | `resume-firefox` | #9 Watch progress and resume, including a browser restart and 1.2 data |
+| 1.3 | `progress-bars-firefox` | #10 Progress bars; saves light and dark screenshots |
+| 1.3 | `watched-firefox` | #11 Skip watched and Clear watched |
 
 The shared helpers are in `scripts/e2e/lib.mjs` (YouTube and panel helpers) and `scripts/e2e/ff.mjs` (the Marionette client). A browser restart is checked by quitting Firefox and relaunching it on the same profile (`launch(name, { keepProfile: true })`); prefs in `ff.mjs` keep a temporary add-on's storage across the reinstall.
 
