@@ -73,7 +73,8 @@ try {
   await ff.command({ type: 'queue/clear' });
   const [, A, B, C] = VIDEOS;
   await ff.command({ type: 'queue/add', videoIds: [C, A, B] });
-  await until(async () => (await queueState(ff)).entries.length === 3, 5000);
+  // Sorting needs the lengths, which Cue looks up after adding: wait for them so the expected order is fair.
+  await until(async () => (await queueState(ff)).entries.filter((e) => e.durationSec).length === 3, 30000);
   check('a queue with no current entry', (await queueState(ff)).currentId === null);
   const all = (await queueState(ff)).entries;
   await panelMenu(ff, 'Shortest first');

@@ -263,18 +263,41 @@ export function playlistVideos(data: unknown): PlaylistPage {
     if (Array.isArray(node)) return node.forEach(walk);
     if (typeof node !== 'object' || node === null) return;
     const o = node as Record<string, any>;
+    const add = (video: PlaylistVideo) => {
+      if (!VIDEO_ID.test(video.videoId) || seen.has(video.videoId)) return;
+      seen.add(video.videoId);
+      videos.push(video);
+    };
     const item = o.playlistVideoRenderer;
     if (item && typeof item.videoId === 'string') {
-      if (item.isPlayable !== false && VIDEO_ID.test(item.videoId) && !seen.has(item.videoId)) {
-        seen.add(item.videoId);
-        const length = Number(item.lengthSeconds);
-        videos.push({ videoId: item.videoId, title: runsText(item.title), channel: runsText(item.shortBylineText), durationSec: length > 0 ? length : null });
+      const length = Number(item.lengthSeconds);
+      if (item.isPlayable !== false) add({ videoId: item.videoId, title: runsText(item.title), channel: runsText(item.shortBylineText), durationSec: length > 0 ? length : null });
+      return;
+    }
+    // The newer layout YouTube serves some playlist pages in.
+    const lockup = o.lockupViewModel;
+    if (lockup && typeof lockup.contentId === 'string') {
+      if (lockup.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO') {
+        const meta = lockup.metadata?.lockupMetadataViewModel;
+        const badge = lockup.contentImage?.thumbnailViewModel?.overlays
+          ?.flatMap((overlay: any) => overlay?.thumbnailBottomOverlayViewModel?.badges ?? [])
+          .map((b: any) => b?.thumbnailBadgeViewModel?.text)
+          .find((text: unknown) => typeof text === 'string' && /^\d+(:\d{2}){1,2}$/.test(text));
+        add({
+          videoId: lockup.contentId,
+          title: runsText(meta?.title),
+          channel: runsText(meta?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts?.[0]?.text),
+          durationSec: badge ? badge.split(':').reduce((sum: number, part: string) => sum * 60 + Number(part), 0) : null,
+        });
       }
       return;
     }
-    const token = o.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+    // The list's own next page comes first; a later section can carry a token of its own.
+    const token =
+      o.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token ??
+      o.continuationItemViewModel?.continuationCommand?.innertubeCommand?.continuationCommand?.token;
     if (typeof token === 'string') {
-      continuation = token;
+      continuation ??= token;
       return;
     }
     Object.values(o).forEach(walk);

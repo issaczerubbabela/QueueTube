@@ -6,7 +6,7 @@ import * as Sh from '../domain/shelf';
 import { FetchedPlaylist, fetchDuration, fetchPlaylist, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, parseVideoLink, startTimes } from '../domain/youtube';
 import { Command, OptionsSection, PLAYLIST_CONFIRM_ABOVE, PlaylistReply, RoleQuery, Status, TabMessage } from '../shared/messages';
 import { createMenus, onMenuClick } from './menus';
-import { currentPlayer, electPlayer, focusPlayer, focusTab, loadVideo, setPlayer } from './player';
+import { askYouTubeTab, currentPlayer, electPlayer, focusPlayer, focusTab, loadVideo, setPlayer } from './player';
 import {
   TabBook,
   forgetTab,
@@ -125,7 +125,9 @@ let lastPlaylist: { listId: string; at: number; playlist: FetchedPlaylist } | nu
 
 async function readPlaylist(listId: string): Promise<FetchedPlaylist | null> {
   if (lastPlaylist?.listId === listId && Date.now() - lastPlaylist.at < 120_000) return lastPlaylist.playlist;
-  const playlist = await fetchPlaylist(listId);
+  // YouTube answers the requests for a playlist's later pages with 403 when they come from the
+  // extension, so a YouTube tab reads it when there is one; otherwise only what we can get.
+  const playlist = (await askYouTubeTab<FetchedPlaylist | null>(await loadBook(), { type: 'playlist/read', listId })) ?? (await fetchPlaylist(listId));
   if (playlist) lastPlaylist = { listId, at: Date.now(), playlist };
   return playlist;
 }

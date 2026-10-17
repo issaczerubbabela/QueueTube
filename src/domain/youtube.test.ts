@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import playlistContinuation from './fixtures/playlist-continuation.json';
 import playlistPage from './fixtures/playlist-page.json';
+import playlistPageLockup from './fixtures/playlist-page-lockup.json';
 import {
   extractPageData,
   findVideoIds,
@@ -190,6 +191,22 @@ describe('playlistVideos', () => {
     const { videos, continuation } = playlistVideos(playlistContinuation);
     expect(videos.map((v) => v.videoId)).toEqual(['OPf0YbXqDm0', 'fJ9rUzIMcZQ', 'dQw4w9WgXcQ']);
     expect(continuation).toBeNull();
+  });
+
+  // YouTube serves some playlist pages in its newer layout (a real capture, trimmed).
+  it('reads the newer layout: videos as lockups, in order, with their details', () => {
+    const { videos } = playlistVideos(playlistPageLockup);
+    expect(videos.map((v) => v.videoId)).toEqual(['5YWaIglbCak', 'YoNu4zyT-R8', 'qgT_rshCUQ0']);
+    expect(videos[1]).toEqual({ videoId: 'YoNu4zyT-R8', title: 'Led Zeppelin - IV {Remastered} [Full Album] (HQ)', channel: 'Kerrrang', durationSec: 42 * 60 + 36 });
+  });
+
+  it('takes the newer layout’s next-page token from the end of the list, not a later section', () => {
+    expect(playlistVideos(playlistPageLockup).continuation).toMatch(/^4qmFsgKBARIkVkxQTGtqRXZNSnBGS2VYYnZzN0VU/);
+  });
+
+  it('skips lockups that are not videos', () => {
+    const notVideo = { lockupViewModel: { contentId: 'PLxxxxxxxxxx', contentType: 'LOCKUP_CONTENT_TYPE_PLAYLIST', metadata: {} } };
+    expect(playlistVideos({ items: [notVideo] }).videos).toEqual([]);
   });
 
   it('finds nothing in unrelated data', () => {
