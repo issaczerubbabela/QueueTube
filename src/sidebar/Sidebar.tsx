@@ -20,6 +20,7 @@ import {
   Users,
   Shuffle,
   ListVideo as PlaylistIcon,
+  Share2,
 } from 'lucide-react';
 import browser from 'webextension-polyfill';
 import { whatsNewVersion } from '../domain/changelog';
@@ -30,7 +31,7 @@ import { useExtensionState, useWatchedVideos } from '../shared/state';
 import { EMPTY_QUEUE_HINT, Menu, TimeLeft, Title, Toast, useMenu, useToast } from '../ui/components';
 import { queuePlaylist } from '../ui/playlist';
 import { tintStyle, useTint } from '../ui/tint';
-import { dropVideos, exportQueue, importQueue, mayHoldLinks, pluralVideos } from '../ui/transfer';
+import { copyShareLink, dropVideos, exportQueue, importQueue, mayHoldLinks, pluralVideos } from '../ui/transfer';
 import { HistoryList } from './HistoryList';
 import { ENTRY_DRAG_TYPE, QueueList } from './QueueList';
 import { SHELF_DRAG_TYPE, ShelfList } from './ShelfList';
@@ -260,6 +261,12 @@ export function Sidebar() {
             { label: 'Gather open tabs', icon: <Layers />, onSelect: gather },
             { label: 'Import from file…', icon: <Upload />, onSelect: () => fileInput.current?.click() },
             { label: 'Export to file', icon: <Download />, disabled: total === 0, onSelect: () => exportQueue(queue.entries) },
+            {
+              label: 'Copy share link',
+              icon: <Share2 />,
+              disabled: Q.upcoming(queue).length === 0 && !Q.currentEntry(queue),
+              onSelect: async () => show({ message: await copyShareLink(queue) }),
+            },
             {
               label: 'Open as YouTube playlist',
               icon: <ListPlus />,

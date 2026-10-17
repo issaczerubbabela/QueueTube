@@ -181,6 +181,27 @@ label.setting-control {
 .muted {
   color: var(--text-2);
 }
+.paste-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.text-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+}
+.text-input:focus {
+  border-color: var(--link);
+  outline: none;
+}
 
 kbd {
   padding: 0 8px;

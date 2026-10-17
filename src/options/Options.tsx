@@ -5,7 +5,7 @@ import type { Settings } from '../domain/queue';
 import { send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
 import { formatShortcut } from '../ui/shortcut';
-import { exportQueue, importQueue, pluralVideos } from '../ui/transfer';
+import { copyShareLink, exportQueue, importQueue, importText, pluralVideos } from '../ui/transfer';
 import { Guide } from './Guide';
 import type { BooleanSetting, SettingAnchor } from './guideEntries';
 import { WhatsNew } from './WhatsNew';
@@ -63,6 +63,8 @@ const SETTING_TITLES: Record<SettingAnchor, string> = {
   ...(Object.fromEntries([...QUEUE_SETTINGS, ...PLAYBACK_SETTINGS].map((s) => [s.key, s.title])) as Record<SettingAnchor, string>),
   export: 'Export queue',
   import: 'Import from file',
+  share: 'Copy share link',
+  paste: 'Paste links',
   history: 'Clear history',
 };
 
@@ -107,6 +109,7 @@ export function Options() {
   const [notice, setNotice] = useState<string | null>(null);
   const [active, setActive] = useState(SECTIONS[0].id);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [pasted, setPasted] = useState('');
   const isFirefox = navigator.userAgent.includes('Firefox');
   const version = browser.runtime.getManifest().version;
   const unseen = whatsNewVersion(lastSeenVersion, version) !== null;
@@ -258,6 +261,41 @@ export function Options() {
                   if (file) setNotice(await importQueue(file).catch(() => 'Could not read that file'));
                 }}
               />
+            </div>
+            <div id="setting-share" className="setting">
+              <span className="setting-label">Share</span>
+              <span className="setting-control stacked">
+                <button className="link" disabled={queue.entries.length === 0} onClick={async () => setNotice(await copyShareLink(queue))}>
+                  Copy share link
+                </button>
+                <span className="muted">A YouTube link that plays the rest of your queue (up to 50 videos), for anyone, with or without Cue.</span>
+              </span>
+            </div>
+            <div id="setting-paste" className="setting">
+              <span className="setting-label">Paste links</span>
+              <form
+                className="setting-control stacked"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setNotice(await importText(pasted));
+                  setPasted('');
+                }}
+              >
+                <span className="paste-row">
+                  <input
+                    className="text-input"
+                    type="text"
+                    value={pasted}
+                    onChange={(e) => setPasted(e.target.value)}
+                    placeholder="Paste YouTube links or a share link"
+                    aria-label="YouTube links or a share link to add"
+                  />
+                  <button className="link" type="submit" disabled={!pasted.trim()}>
+                    Add
+                  </button>
+                </span>
+                <span className="muted">Adds every video in the links, including all the videos in a share link.</span>
+              </form>
             </div>
             <div id="setting-history" className="setting">
               <span className="setting-label">History</span>

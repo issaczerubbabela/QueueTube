@@ -12,8 +12,10 @@ import {
   parsePlaylistId,
   parseStartTime,
   parseVideoId,
+  parseShareLink,
   parseVideoLink,
   playlistVideos,
+  shareLink,
   startTimes,
   watchUrl,
 } from './youtube';
@@ -223,5 +225,37 @@ describe('innertubeConfig', () => {
   it('falls back to a recent web client version without a key', () => {
     expect(innertubeConfig('').apiKey).toBeNull();
     expect(innertubeConfig('').clientVersion).toMatch(/^2\.\d{8}/);
+  });
+});
+
+describe('shareLink', () => {
+  const ids = (n: number) => Array.from({ length: n }, (_, i) => `vid${String(i).padStart(8, '0')}`);
+
+  it('builds a watch_videos link with the videos in order', () => {
+    expect(shareLink(['dQw4w9WgXcQ', '9bZkp7q19f0'])).toEqual({
+      url: 'https://www.youtube.com/watch_videos?video_ids=dQw4w9WgXcQ,9bZkp7q19f0',
+      shared: 2,
+      total: 2,
+    });
+  });
+
+  it('holds at most 50, and says how many were left out', () => {
+    const link = shareLink(ids(73));
+    expect(link.shared).toBe(50);
+    expect(link.total).toBe(73);
+    expect(parseShareLink(link.url)).toEqual(ids(50));
+  });
+});
+
+describe('parseShareLink / findVideoLinks with share links', () => {
+  it('reads the video ids from a share link, in order', () => {
+    expect(parseShareLink('https://www.youtube.com/watch_videos?video_ids=dQw4w9WgXcQ,9bZkp7q19f0,bad')).toEqual(['dQw4w9WgXcQ', '9bZkp7q19f0']);
+    expect(parseShareLink('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toEqual([]);
+    expect(parseShareLink('https://music.youtube.com/watch_videos?video_ids=dQw4w9WgXcQ')).toEqual([]);
+  });
+
+  it('expands share links wherever text is scanned for videos, as Import does', () => {
+    const text = 'Here: youtube.com/watch_videos?video_ids=aaaaaaaaaaa,bbbbbbbbbbb and https://youtu.be/ccccccccccc?t=5 and youtu.be/aaaaaaaaaaa';
+    expect(findVideoIds(text)).toEqual(['aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc']);
   });
 });

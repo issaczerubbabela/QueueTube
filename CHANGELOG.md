@@ -5,6 +5,7 @@ What changed in each version of Cue, newest first. This file is shown in Cue's s
 ## 1.5.0
 
 - **Shelf**: set a video aside without losing it. Choose **Move to shelf** in its ⋮ menu, or drag it onto the new **Shelf** tab next to Queue and History. Nothing on the shelf plays by itself; bring a video back with **Back to queue** or **Play next**, or drag it onto the Queue tab. Queueing a shelved video any other way takes it off the shelf, so a video is never in both places.
+- **Copy share link** in the panel's ⋮ menu, or under Your queue in settings, copies a plain YouTube link that plays the rest of your queue for anyone, with or without Cue (up to 50 videos; it tells you when it left some out). **Paste links** in settings, Import and dropping onto the panel all accept these links and queue every video in them.
 
 ## 1.4.0
 

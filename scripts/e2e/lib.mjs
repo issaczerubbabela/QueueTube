@@ -184,3 +184,29 @@ export async function setTheme(ff, theme) {
   await ff.eval(`document.documentElement.toggleAttribute('dark', ${theme === 'dark'}); return true`);
   return until(() => ff.eval(`return document.querySelector('#queuetube-host')?.dataset.theme === '${theme}'`), 5000);
 }
+
+/** The text on the clipboard, read through Firefox's own clipboard service. */
+export const clipboardText = (ff) =>
+  ff.chrome(`const trans = Cc['@mozilla.org/widget/transferable;1'].createInstance(Ci.nsITransferable);
+    trans.init(null);
+    trans.addDataFlavor('text/plain');
+    try { Services.clipboard.getData(trans, Ci.nsIClipboard.kGlobalClipboard); }
+    catch { Services.clipboard.getData(trans, Ci.nsIClipboard.kGlobalClipboard, null); }
+    const data = {};
+    try { trans.getTransferData('text/plain', data); } catch { return null; }
+    return data.value?.QueryInterface(Ci.nsISupportsString).data ?? null;`);
+
+/**
+ * Opens the panel's ⋮ menu and clicks an item with a real pointer click, for actions that need
+ * a user gesture (copying to the clipboard).
+ */
+export async function panelMenuReal(ff, label) {
+  await panel(ff, `root.querySelector('button[aria-label^="Queue options"]')?.click(); return true;`);
+  await sleep(400);
+  const at = await panel(ff, `const item = [...root.querySelectorAll('[role=menuitem]')].find((b) => b.textContent.trim() === ${JSON.stringify(label)});
+    if (!item || item.disabled) return null; const r = item.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 };`);
+  if (!at) return false;
+  await ff.pointer(at.x, at.y);
+  await sleep(400);
+  return true;
+}

@@ -1,6 +1,7 @@
 // Moving queues in and out of Cue as plain text: one "title<TAB>url" line per entry.
+import * as Q from '../domain/queue';
 import type { Entry, Position } from '../domain/queue';
-import { findVideoLinks, startTimes, watchUrl } from '../domain/youtube';
+import { findVideoLinks, shareLink, startTimes, watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
 
 export function exportQueue(entries: Entry[]): void {
@@ -18,11 +19,32 @@ export function exportQueue(entries: Entry[]): void {
 
 /** Queues every YouTube video linked in a text file. Resolves to a short result message. */
 export async function importQueue(file: File): Promise<string> {
-  const links = findVideoLinks(await file.text());
-  if (links.length === 0) return 'No YouTube links found in that file';
+  return importText(await file.text(), 'No YouTube links found in that file');
+}
+
+/** Queues every YouTube video linked in some text (pasted links, share links). Resolves to a short result message. */
+export async function importText(text: string, none = 'No YouTube links found'): Promise<string> {
+  const links = findVideoLinks(text);
+  if (links.length === 0) return none;
   const { added } = await send({ type: 'queue/add', videoIds: links.map((l) => l.videoId), starts: startTimes(links) });
   if (added === 0) return 'Those videos are already queued';
   return `Added ${added} ${added === 1 ? 'video' : 'videos'}`;
+}
+
+/**
+ * Copies a plain YouTube link that plays the current entry and the ones after it (the whole
+ * queue when nothing is current), up to 50. Resolves to a short result message.
+ */
+export async function copyShareLink(queue: Q.Queue): Promise<string> {
+  const current = Q.currentEntry(queue);
+  const { url, shared, total } = shareLink([...(current ? [current] : []), ...Q.upcoming(queue)].map((e) => e.videoId));
+  if (total === 0) return 'Nothing to share';
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    return "Couldn't copy the link";
+  }
+  return shared < total ? `Shared first ${shared} of ${total}. Link copied` : `Share link copied (${pluralVideos(total)})`;
 }
 
 /** True while something that can hold links (not files) is dragged over a surface. */

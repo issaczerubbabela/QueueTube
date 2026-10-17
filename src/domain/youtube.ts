@@ -66,14 +66,26 @@ export function parseVideoId(url: string | undefined): string | null {
   return parseVideoLink(url)?.videoId ?? null;
 }
 
-/** Every distinct video linked in free text, in order of first appearance, with its start time. */
+/** The videos in a share link (`watch_videos?video_ids=a,b,c`), in order; empty for any other URL. */
+export function parseShareLink(url: string | undefined): string[] {
+  const parsed = parse(url);
+  if (!parsed || !VIDEO_HOSTS.has(parsed.hostname) || parsed.pathname !== '/watch_videos') return [];
+  return (parsed.searchParams.get('video_ids') ?? '').split(',').filter((id) => VIDEO_ID.test(id));
+}
+
+/**
+ * Every distinct video linked in free text, in order of first appearance, with its start time.
+ * Share links count as links to each of their videos.
+ */
 export function findVideoLinks(text: string): VideoLink[] {
   const urls =
     text.match(/(?<![\w.-])(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com|youtu\.be)\/[^\s<>"']+/gi) ?? [];
   const links = new Map<string, VideoLink>();
-  for (const url of urls) {
-    const link = parseVideoLink(/^https?:/i.test(url) ? url : `https://${url}`);
-    if (link && !links.has(link.videoId)) links.set(link.videoId, link);
+  for (const raw of urls) {
+    const url = /^https?:/i.test(raw) ? raw : `https://${raw}`;
+    const found = parseShareLink(url).map((videoId): VideoLink => ({ videoId, start: null }));
+    const link = parseVideoLink(url);
+    for (const l of link ? [link] : found) if (!links.has(l.videoId)) links.set(l.videoId, l);
   }
   return [...links.values()];
 }
@@ -96,8 +108,19 @@ export function isNewTabPage(url: string | undefined): boolean {
 export const watchUrl = (videoId: string, startSec: number | null = null) =>
   `https://www.youtube.com/watch?v=${videoId}${startSec ? `&t=${Math.floor(startSec)}s` : ''}`;
 export const thumbnailUrl = (videoId: string) => `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-export const playlistUrl = (videoIds: string[]) =>
-  `https://www.youtube.com/watch_videos?video_ids=${videoIds.slice(0, 50).join(',')}`;
+/** How many videos a share link holds: YouTube's watch_videos links stop working much beyond this. */
+export const SHARE_LIMIT = 50;
+
+/**
+ * A plain YouTube link that plays these videos in order as a temporary playlist, for anyone,
+ * with or without Cue. Holds at most SHARE_LIMIT; `shared` says how many made it in.
+ */
+export function shareLink(videoIds: string[]): { url: string; shared: number; total: number } {
+  const ids = videoIds.slice(0, SHARE_LIMIT);
+  return { url: `https://www.youtube.com/watch_videos?video_ids=${ids.join(',')}`, shared: ids.length, total: videoIds.length };
+}
+
+export const playlistUrl = (videoIds: string[]) => shareLink(videoIds).url;
 
 export interface VideoInfo {
   title: string;

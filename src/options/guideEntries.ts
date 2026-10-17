@@ -5,7 +5,7 @@ import type { Settings } from '../domain/queue';
 export type BooleanSetting = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
 
 /** A row on the settings page an entry can link to: a setting, or one of the "Your queue" actions. */
-export type SettingAnchor = Exclude<BooleanSetting, 'sidebarCollapsed'> | 'export' | 'import' | 'history';
+export type SettingAnchor = Exclude<BooleanSetting, 'sidebarCollapsed'> | 'export' | 'import' | 'share' | 'paste' | 'history';
 
 export interface GuideEntry {
   title: string;
@@ -201,6 +201,16 @@ export const GUIDE: GuideGroup[] = [
         title: 'Export',
         text: "Save the queue as a text file of links, here or with Export to file in the panel's ⋮ menu.",
         setting: 'export',
+      },
+      {
+        title: 'Share your queue',
+        text: "Copy share link, in the panel's ⋮ menu or here, gives you a YouTube link that plays the rest of your queue (up to 50 videos) for anyone, with or without Cue.",
+        setting: 'share',
+      },
+      {
+        title: 'Paste links',
+        text: 'Paste YouTube links, or a share link someone sent you, here to add all their videos to the queue.',
+        setting: 'paste',
       },
       {
         title: 'Import',
