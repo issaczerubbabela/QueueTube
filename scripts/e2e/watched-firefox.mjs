@@ -26,6 +26,9 @@ const ff = await withCue(launch, 'watched-firefox');
 
 const isWatched = async (id) => ((await stored(ff, 'progress')) ?? {})[id]?.watched === true;
 const jump = async (id) => {
+  // Let the last navigation land first: asked for the video the tab still shows, Cue rightly
+  // doesn't reload it, and the pending navigation would then win.
+  await until(async () => new URL(await ff.url()).searchParams.get('v') === (await currentVideo(ff)), 20000);
   await ff.command({ type: 'play/entry', entryId: await entryId(ff, id) });
   await until(async () => (await currentVideo(ff)) === id && new URL(await ff.url()).searchParams.get('v') === id, 20000);
   return playable(ff);
@@ -91,6 +94,9 @@ try {
   await jump(V0);
   await video(ff, 'v.currentTime = v.duration - 2; v.play(); return true');
   check('a video ending passes over Watched entries too', await until(async () => (await currentVideo(ff)) === V3, 90000), await currentVideo(ff));
+  // The queue moves before the tab navigates: read the button on V3's page, not the old one.
+  await until(async () => new URL(await ff.url()).searchParams.get('v') === V3, 20000);
+  await playable(ff);
   check('the next button skips them as well (enabled only with an unwatched entry ahead)', await until(() => panel(ff, `return root.querySelector('button[aria-label="Play next"]')?.disabled === true`), 5000));
   await playable(ff);
 
