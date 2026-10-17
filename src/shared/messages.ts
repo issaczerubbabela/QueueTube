@@ -79,6 +79,8 @@ export function send<C extends Command>(command: C): Promise<Reply<C>> {
 export type TabMessage =
   | { type: 'role'; isPlayer: boolean }
   | { type: 'ping' }
+  /** Read a playlist from the page's own origin: YouTube refuses its later pages to the extension (403). */
+  | { type: 'playlist/read'; listId: string }
   /** The video ended at the Stop point: stay paused (cancel YouTube's autoplay). */
   | { type: 'stopped' };
 

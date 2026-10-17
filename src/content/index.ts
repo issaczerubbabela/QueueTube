@@ -3,7 +3,7 @@
 import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import browser from 'webextension-polyfill';
-import { parseVideoId } from '../domain/youtube';
+import { fetchPlaylist, parseVideoId } from '../domain/youtube';
 import type { RoleQuery, TabMessage } from '../shared/messages';
 import { send } from '../shared/messages';
 import { Sidebar } from '../sidebar/Sidebar';
@@ -152,6 +152,7 @@ browser.runtime.onMessage.addListener((message: unknown) => {
     setRole(msg.isPlayer);
     return Promise.resolve(true);
   }
+  if (msg?.type === 'playlist/read') return fetchPlaylist(msg.listId);
   if (msg?.type === 'stopped') {
     if (isPlayer) cancelAutoplay();
     return Promise.resolve(true);
