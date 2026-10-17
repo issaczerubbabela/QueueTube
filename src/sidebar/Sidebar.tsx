@@ -32,13 +32,16 @@ import { queuePlaylist } from '../ui/playlist';
 import { tintStyle, useTint } from '../ui/tint';
 import { dropVideos, exportQueue, importQueue, mayHoldLinks, pluralVideos } from '../ui/transfer';
 import { HistoryList } from './HistoryList';
-import { QueueList } from './QueueList';
+import { ENTRY_DRAG_TYPE, QueueList } from './QueueList';
+import { SHELF_DRAG_TYPE, ShelfList } from './ShelfList';
 
-type Tab = 'queue' | 'history';
+type Tab = 'queue' | 'shelf' | 'history';
 
 export function Sidebar() {
-  const { ready, queue, settings, lastSeenVersion } = useExtensionState();
+  const { ready, queue, settings, lastSeenVersion, shelf } = useExtensionState();
   const [tab, setTab] = useState<Tab>('queue');
+  /** The tab a queue row or shelved video is being dragged over, to move it there. */
+  const [dropTab, setDropTab] = useState<Tab | null>(null);
   const [dropping, setDropping] = useState(false);
   const menu = useMenu();
   const { toast, show, dismiss } = useToast();
@@ -103,12 +106,38 @@ export function Sidebar() {
         {!collapsed && (
           <div className="header-actions">
             <div className="chips" role="tablist" aria-label="Queue view">
-              <button className="chip" role="tab" aria-selected={tab === 'queue'} onClick={() => setTab('queue')}>
-                Queue
-              </button>
-              <button className="chip" role="tab" aria-selected={tab === 'history'} onClick={() => setTab('history')}>
-                History
-              </button>
+              {(
+                [
+                  // Drag a queue row onto Shelf to shelve it, or a shelved video onto Queue to bring it back.
+                  { id: 'queue', label: 'Queue', accepts: SHELF_DRAG_TYPE, onDrop: (videoId: string) => send({ type: 'shelf/restore', videoId }) },
+                  { id: 'shelf', label: shelf.length ? `Shelf ${shelf.length}` : 'Shelf', accepts: ENTRY_DRAG_TYPE, onDrop: (entryId: string) => send({ type: 'shelf/add', entryId }) },
+                  { id: 'history', label: 'History' },
+                ] as { id: Tab; label: string; accepts?: string; onDrop?: (id: string) => void }[]
+              ).map(({ id, label, accepts, onDrop }) => (
+                <button
+                  key={id}
+                  className={`chip${dropTab === id ? ' drop-target' : ''}`}
+                  role="tab"
+                  aria-selected={tab === id}
+                  onClick={() => setTab(id)}
+                  onDragOver={(e) => {
+                    if (!accepts || !e.dataTransfer.types.includes(accepts)) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setDropTab(id);
+                  }}
+                  onDragLeave={() => setDropTab(null)}
+                  onDrop={(e) => {
+                    setDropTab(null);
+                    const dragged = accepts ? e.dataTransfer.getData(accepts) : '';
+                    if (!dragged || !onDrop) return;
+                    e.preventDefault();
+                    onDrop(dragged);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
             <span className="spacer" />
             <button
@@ -177,6 +206,8 @@ export function Sidebar() {
               onDropMessage={(message) => show({ message })}
             />
           )
+        ) : tab === 'shelf' ? (
+          <ShelfList shelf={shelf} />
         ) : (
           <HistoryList queue={queue} />
         )}

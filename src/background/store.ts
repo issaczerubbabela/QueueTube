@@ -2,8 +2,9 @@
 // Every read-modify-write runs inside `serial`, so tab events and commands never interleave.
 import browser from 'webextension-polyfill';
 import type { ProgressMap } from '../domain/progress';
+import type { Shelf } from '../domain/shelf';
 import { DEFAULT_SETTINGS, Entry, Queue, Settings, UndoSnapshot, upcoming } from '../domain/queue';
-import { KEYS, readProgress, readQueue, readSettings } from '../shared/state';
+import { KEYS, readProgress, readQueue, readSettings, readShelf } from '../shared/state';
 
 let tail: Promise<unknown> = Promise.resolve();
 
@@ -41,6 +42,15 @@ export async function loadProgress(): Promise<ProgressMap> {
 
 export async function saveProgress(progress: ProgressMap): Promise<void> {
   await browser.storage.local.set({ [KEYS.progress]: progress });
+}
+
+export async function loadShelf(): Promise<Shelf> {
+  const stored = await browser.storage.local.get(KEYS.shelf);
+  return readShelf(stored[KEYS.shelf]);
+}
+
+export async function saveShelf(shelf: Shelf): Promise<void> {
+  await browser.storage.local.set({ [KEYS.shelf]: shelf });
 }
 
 export async function saveLastSeenVersion(version: string): Promise<void> {

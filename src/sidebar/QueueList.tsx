@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowUpToLine, EllipsisVertical, ExternalLink, Link, ListStart, Pause, Play, Search, X } from 'lucide-react';
+import { Archive, ArrowDownToLine, ArrowUpToLine, EllipsisVertical, ExternalLink, Link, ListStart, Pause, Play, Search, X } from 'lucide-react';
 import * as Q from '../domain/queue';
 import { watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
@@ -13,16 +13,19 @@ interface Props {
   onDropMessage: (message: string) => void;
 }
 
-type Drop = { index: number; after: boolean };
+export type Drop = { index: number; after: boolean };
+
+/** Drag data naming a queue entry, so the Shelf tab can take it. */
+export const ENTRY_DRAG_TYPE = 'application/x-cue-entry';
 
 /** Where a drag over a row would drop: before it on its top half, after it on its bottom half. */
-function dropAt(e: React.DragEvent<HTMLElement>, index: number): Drop {
+export function dropAt(e: React.DragEvent<HTMLElement>, index: number): Drop {
   const rect = e.currentTarget.getBoundingClientRect();
   return { index, after: e.clientY > rect.top + rect.height / 2 };
 }
 
 /** Index the dragged entry ends up at when dropped before/after the row at `drop.index`. */
-function targetIndex(from: number, drop: Drop): number {
+export function targetIndex(from: number, drop: Drop): number {
   const insertAt = drop.index + (drop.after ? 1 : 0);
   return insertAt > from ? insertAt - 1 : insertAt;
 }
@@ -125,6 +128,7 @@ export function QueueList({ queue, onRemoved, onDropMessage }: Props) {
       entry.id === queue.stopAfterId
         ? { label: "Don't stop after this", icon: <Play />, onSelect: () => send({ type: 'queue/stopPoint', entryId: null }) }
         : { label: 'Stop after this', icon: <Pause />, onSelect: () => send({ type: 'queue/stopPoint', entryId: entry.id }) },
+      { label: 'Move to shelf', icon: <Archive />, onSelect: () => send({ type: 'shelf/add', entryId: entry.id }) },
       'separator' as const,
       {
         label: 'Open in new tab',
@@ -196,6 +200,7 @@ export function QueueList({ queue, onRemoved, onDropMessage }: Props) {
                 if (filtering) return e.preventDefault();
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', watchUrl(entry.videoId));
+                e.dataTransfer.setData(ENTRY_DRAG_TYPE, entry.id);
                 setDragging(index);
               }}
               onDragOver={(e) => {

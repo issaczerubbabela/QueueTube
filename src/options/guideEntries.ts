@@ -145,6 +145,10 @@ export const GUIDE: GuideGroup[] = [
         text: "Choose Remove from queue in a video's ⋮ menu, or select it and press Delete. Clear queue in the panel's ⋮ menu removes everything.",
       },
       {
+        title: 'Shelf',
+        text: "Set a video aside without losing it: choose Move to shelf in its ⋮ menu, or drag it onto the Shelf tab. Nothing on the shelf plays by itself. Bring it back with Back to queue or Play next, or drag it onto the Queue tab.",
+      },
+      {
         title: 'Undo',
         text: 'Removed a video or cleared the queue by mistake? Choose Undo in the message that appears at the bottom of the panel.',
       },
@@ -186,7 +190,7 @@ export const GUIDE: GuideGroup[] = [
     entries: [
       {
         title: 'Stays in this browser',
-        text: "Your queue, History and settings are stored in this browser only. There's no account, and nothing is synced.",
+        text: "Your queue, shelf, History and settings are stored in this browser only. There's no account, and nothing is synced.",
       },
       {
         title: 'Video lengths',

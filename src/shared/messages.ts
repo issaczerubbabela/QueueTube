@@ -22,6 +22,12 @@ export type Command =
   | { type: 'queue/clearWatched' }
   | { type: 'queue/undo' }
   | { type: 'history/clear' }
+  /** Moves an entry's video to the end of the Shelf. */
+  | { type: 'shelf/add'; entryId: string }
+  /** Moves a video from the Shelf back into the Queue (the end by default, or Play next). */
+  | { type: 'shelf/restore'; videoId: string; at?: Position }
+  | { type: 'shelf/move'; videoId: string; toIndex: number }
+  | { type: 'shelf/remove'; videoId: string }
   | { type: 'play/entry'; entryId: string }
   | { type: 'play/video'; videoId: string }
   | { type: 'play/next' }

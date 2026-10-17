@@ -3,6 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import browser from 'webextension-polyfill';
 import type { Progress, ProgressMap } from '../domain/progress';
 import { DEFAULT_SETTINGS, EMPTY_QUEUE, Queue, Settings } from '../domain/queue';
+import type { Shelf } from '../domain/shelf';
 
 export const KEYS = {
   queue: 'queue',
@@ -11,6 +12,7 @@ export const KEYS = {
   lastSeenVersion: 'lastSeenVersion',
   /** Watch progress, kept apart from the queue so frequent position writes don't re-render it. */
   progress: 'progress',
+  shelf: 'shelf',
 } as const;
 
 export function readQueue(raw: unknown): Queue {
@@ -30,6 +32,20 @@ export function readSettings(raw: unknown): Settings {
 
 export function readLastSeenVersion(raw: unknown): string | null {
   return typeof raw === 'string' ? raw : null;
+}
+
+/** The Shelf; anything malformed (or missing, before 1.5) is dropped. */
+export function readShelf(raw: unknown): Shelf {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((s) => typeof s === 'object' && s !== null && typeof s.videoId === 'string')
+    .map((s) => ({
+      videoId: s.videoId,
+      title: typeof s.title === 'string' ? s.title : '',
+      channel: typeof s.channel === 'string' ? s.channel : '',
+      durationSec: typeof s.durationSec === 'number' ? s.durationSec : null,
+      shelvedAt: typeof s.shelvedAt === 'number' ? s.shelvedAt : 0,
+    }));
 }
 
 const isProgress = (p: unknown): p is Progress =>
@@ -52,38 +68,42 @@ export interface ExtensionState {
   settings: Settings;
   /** The version whose What's new the user has seen; null after an update from before 1.2. */
   lastSeenVersion: string | null;
+  shelf: Shelf;
 }
 
-/** Live, read-only view of the queue, settings and last version seen. Changes go through `send()`. */
+/** Live, read-only view of the queue, Shelf, settings and last version seen. Changes go through `send()`. */
 export function useExtensionState(): ExtensionState {
   const [state, setState] = useState<ExtensionState>({
     ready: false,
     queue: EMPTY_QUEUE,
     settings: DEFAULT_SETTINGS,
     lastSeenVersion: null,
+    shelf: [],
   });
 
   useEffect(() => {
     let alive = true;
-    browser.storage.local.get([KEYS.queue, KEYS.settings, KEYS.lastSeenVersion]).then((stored) => {
+    browser.storage.local.get([KEYS.queue, KEYS.settings, KEYS.lastSeenVersion, KEYS.shelf]).then((stored) => {
       if (!alive) return;
       setState({
         ready: true,
         queue: readQueue(stored[KEYS.queue]),
         settings: readSettings(stored[KEYS.settings]),
         lastSeenVersion: readLastSeenVersion(stored[KEYS.lastSeenVersion]),
+        shelf: readShelf(stored[KEYS.shelf]),
       });
     });
 
     const onChanged = (changes: Record<string, browser.Storage.StorageChange>, area: string) => {
       // Watch progress changes every few seconds; it has its own hook so the queue doesn't re-render.
-      if (area !== 'local' || !(KEYS.queue in changes || KEYS.settings in changes || KEYS.lastSeenVersion in changes)) return;
+      if (area !== 'local' || ![KEYS.queue, KEYS.settings, KEYS.lastSeenVersion, KEYS.shelf].some((key) => key in changes)) return;
       setState((prev) => ({
         ready: true,
         queue: KEYS.queue in changes ? readQueue(changes[KEYS.queue].newValue) : prev.queue,
         settings: KEYS.settings in changes ? readSettings(changes[KEYS.settings].newValue) : prev.settings,
         lastSeenVersion:
           KEYS.lastSeenVersion in changes ? readLastSeenVersion(changes[KEYS.lastSeenVersion].newValue) : prev.lastSeenVersion,
+        shelf: KEYS.shelf in changes ? readShelf(changes[KEYS.shelf].newValue) : prev.shelf,
       }));
     };
     browser.storage.onChanged.addListener(onChanged);

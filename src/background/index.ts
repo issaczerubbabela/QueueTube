@@ -2,6 +2,7 @@
 import browser from 'webextension-polyfill';
 import * as P from '../domain/progress';
 import * as Q from '../domain/queue';
+import * as Sh from '../domain/shelf';
 import { FetchedPlaylist, fetchDuration, fetchPlaylist, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, parseVideoLink, startTimes } from '../domain/youtube';
 import { Command, OptionsSection, PLAYLIST_CONFIRM_ABOVE, PlaylistReply, RoleQuery, Status, TabMessage } from '../shared/messages';
 import { createMenus, onMenuClick } from './menus';
@@ -13,6 +14,7 @@ import {
   loadProgress,
   loadQueue,
   loadSettings,
+  loadShelf,
   loadUndo,
   migrateLegacyState,
   saveBook,
@@ -20,6 +22,7 @@ import {
   saveProgress,
   saveQueue,
   saveSettings,
+  saveShelf,
   saveUndo,
   serial,
 } from './store';
@@ -42,8 +45,30 @@ async function apply(op: (queue: Q.Queue, settings: Q.Settings, watched: Readonl
   const [queue, settings, progress] = await Promise.all([loadQueue(), loadSettings(), loadProgress()]);
   const result = op(queue, settings, P.watchedVideos(progress));
   const step: Q.Step = 'play' in result ? result : { queue: result, play: null };
-  if (step.queue !== queue) await saveQueue(step.queue);
+  if (step.queue !== queue) {
+    await saveQueue(step.queue);
+    // A video is in the Queue or on the Shelf, never both: queueing it by any route unshelves it.
+    const shelf = await loadShelf();
+    const unshelved = Sh.withoutQueued(shelf, step.queue);
+    if (unshelved !== shelf) await saveShelf(unshelved);
+  }
   if (step.play) await play(step.play);
+}
+
+/** Applies a change to the Queue and the Shelf together. Call only inside `serial`. */
+async function applyWithShelf(op: (queue: Q.Queue, shelf: Sh.Shelf, settings: Q.Settings) => { queue: Q.Queue; shelf: Sh.Shelf }): Promise<void> {
+  const [queue, shelf, settings] = await Promise.all([loadQueue(), loadShelf(), loadSettings()]);
+  const next = op(queue, shelf, settings);
+  if (next.shelf !== shelf) await saveShelf(next.shelf);
+  if (next.queue !== queue) await saveQueue(next.queue);
+}
+
+/** Fills in a video's details wherever it shows: Queue, History and Shelf. Call only inside `serial`. */
+async function describeVideo(videoId: string, details: Partial<Q.Video>): Promise<void> {
+  await apply((q) => Q.describe(q, videoId, details));
+  const shelf = await loadShelf();
+  const described = Sh.describeShelved(shelf, videoId, details);
+  if (described !== shelf) await saveShelf(described);
 }
 
 /** Applies a Watch progress change. Call only inside `serial`. */
@@ -60,7 +85,7 @@ async function applyProgress(op: (progress: P.ProgressMap) => P.ProgressMap): Pr
 function describeLater(videoIds: string[]): void {
   for (const videoId of videoIds) {
     fetchVideoInfo(videoId).then((info) => {
-      if (info) serial(() => apply((q) => Q.describe(q, videoId, info)));
+      if (info) serial(() => describeVideo(videoId, info));
     });
   }
   const pending = [...videoIds];
@@ -70,7 +95,7 @@ function describeLater(videoIds: string[]): void {
       const known = (await loadQueue()).entries.find((e) => e.videoId === videoId)?.durationSec;
       if (known) continue;
       const durationSec = await fetchDuration(videoId);
-      if (durationSec) await serial(() => apply((q) => Q.describe(q, videoId!, { durationSec })));
+      if (durationSec) await serial(() => describeVideo(videoId!, { durationSec }));
     }
   };
   for (let i = 0; i < 3; i++) worker();
@@ -324,6 +349,18 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
       return apply((q) => Q.setStopPoint(q, command.entryId));
     case 'queue/playNextInLine':
       return apply((q) => Q.playNextInLine(q, command.entryId));
+    case 'shelf/add':
+      return applyWithShelf((q, shelf) => Sh.moveToShelf(q, shelf, command.entryId));
+    case 'shelf/restore':
+      return applyWithShelf((q, shelf, s) => Sh.backToQueue(q, shelf, command.videoId, s, command.at ?? 'end'));
+    case 'shelf/move': {
+      const shelf = await loadShelf();
+      return saveShelf(Sh.moveOnShelf(shelf, command.videoId, command.toIndex));
+    }
+    case 'shelf/remove': {
+      const shelf = await loadShelf();
+      return saveShelf(Sh.removeFromShelf(shelf, command.videoId));
+    }
     case 'history/clear':
       return apply((q) => Q.clearHistory(q));
 
@@ -359,7 +396,7 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     }
     case 'player/describe': {
       const { videoId, title, channel, durationSec } = command;
-      return apply((q) => Q.describe(q, videoId, { title, channel, durationSec }));
+      return describeVideo(videoId, { title, channel, durationSec });
     }
     case 'player/focus':
       return focusPlayer(await loadBook());
@@ -434,8 +471,8 @@ function onLaunch(isBrowserStart: boolean) {
       const elected = await electPlayer(book);
       if (elected) await apply((q) => Q.playerShowing(q, elected.videoId));
     }
-    const queue = await loadQueue();
-    describeLater([...new Set([...queue.entries, ...queue.history].filter((v) => !v.title).map((v) => v.videoId))]);
+    const [queue, shelf] = await Promise.all([loadQueue(), loadShelf()]);
+    describeLater([...new Set([...queue.entries, ...queue.history, ...shelf].filter((v) => !v.title).map((v) => v.videoId))]);
   });
 }
 

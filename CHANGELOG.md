@@ -2,6 +2,10 @@
 
 What changed in each version of Cue, newest first. This file is shown in Cue's settings under **What's new**.
 
+## 1.5.0
+
+- **Shelf**: set a video aside without losing it. Choose **Move to shelf** in its ⋮ menu, or drag it onto the new **Shelf** tab next to Queue and History. Nothing on the shelf plays by itself; bring a video back with **Back to queue** or **Play next**, or drag it onto the Queue tab. Queueing a shelved video any other way takes it off the shelf, so a video is never in both places.
+
 ## 1.4.0
 
 - **Stop after this**: choose it in a video's ⋮ menu and playback pauses when that video ends, instead of moving on. The row says "Stops after this". It clears itself once it has stopped playback, and there's only ever one.

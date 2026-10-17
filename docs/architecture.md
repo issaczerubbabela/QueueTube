@@ -7,6 +7,7 @@ src/
 ├── domain/            Pure, browser-free, unit-tested
 │   ├── queue.ts       The queue model: enqueue, advance, goBack, move, playerShowing…
 │   ├── progress.ts    Watch progress per video: the 30 s / 90% rules, Watched, resume point, 500-video cap
+│   ├── shelf.ts       The Shelf: move to and from the Queue; a video is never in both
 │   ├── youtube.ts     What counts as YouTube; URL → video id and t=; oEmbed/duration lookups
 │   └── changelog.ts   CHANGELOG.md → versions of headings and bullets for What's new
 ├── shared/
@@ -33,6 +34,8 @@ src/
 4. Every surface re-renders from `storage.onChanged`.
 
 Watch progress has its own `progress` key in `storage.local`, apart from the queue: the player tab reports its position every ~10 seconds, and keeping those writes out of the `queue` key means they don't re-render everything that reads the queue. `useExtensionState()` ignores changes to other keys. Resuming is done by loading the player tab with `&t=<seconds>`, which YouTube honours.
+
+The Shelf has its own `shelf` key. `apply()` in the background enforces "never in both places" once for every route: after any queue change it takes newly queued videos off the Shelf.
 
 Tab bookkeeping (player tab id, fresh tabs, free tabs, undo snapshot) lives in `storage.session`: it survives the MV3 worker sleeping but is forgotten when the browser restarts, when tab ids become meaningless.
 

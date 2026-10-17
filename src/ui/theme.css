@@ -212,6 +212,11 @@ button:disabled {
   background: var(--filled);
   color: var(--on-filled);
 }
+/* A tab that takes what's being dragged over it (a queue row onto Shelf, a shelved video onto Queue). */
+.chip.drop-target {
+  outline: 2px dashed var(--text-2);
+  outline-offset: 2px;
+}
 
 /* YouTube's toggle switch (thin bar, round knob), built on a checkbox for free accessibility. */
 .switch {
