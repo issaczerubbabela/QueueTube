@@ -17,6 +17,7 @@ import {
   until,
   watch,
   withCue,
+  video,
 } from './lib.mjs';
 
 const [V0, V1] = VIDEOS;
@@ -40,8 +41,10 @@ try {
   await until(async () => (await currentVideo(ff)) === V0, 20000);
   await playable(ff);
   await ff.command({ type: 'play/entry', entryId: await entryId(ff, V1) });
-  await until(async () => (await currentVideo(ff)) === V1, 20000);
+  await until(async () => (await currentVideo(ff)) === V1 && new URL(await ff.url()).searchParams.get('v') === V1, 20000);
   check('the second entry plays', await playable(ff));
+  // It is the 19-second video: pause it so it doesn't end and reload the page mid-check.
+  await video(ff, 'v.pause(); return true');
 
   // ── Copy share link from the panel ──
   check('Copy share link is in the panel’s ⋮ menu', await panelMenuReal(ff, 'Copy share link'));

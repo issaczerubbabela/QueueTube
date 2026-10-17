@@ -16,6 +16,7 @@ import {
   stored,
   summary,
   until,
+  video,
   watch,
   withCue,
 } from './lib.mjs';
@@ -82,6 +83,9 @@ try {
   await ff.command({ type: 'play/next' });
   check('next passes over a video moved to the Shelf', await until(async () => (await currentVideo(ff)) === next, 20000), { now: await currentVideo(ff), expected: next });
   await playable(ff);
+  // The next entry can be the 19-second video: pause it so it doesn't end and reload the page mid-check.
+  await video(ff, 'v.pause(); return true');
+  await until(() => panel(ff, `return root.querySelectorAll('li.row').length > 0`), 10000);
 
   // ── Reorder and remove on the Shelf ──
   for (const v of [V1, V3]) await rowMenu(ff, v, 'Move to shelf');
