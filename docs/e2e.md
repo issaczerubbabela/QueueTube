@@ -40,6 +40,8 @@ What each release's scripts check (the full list is `RELEASES` in `scripts/e2e/r
 | 1.4 | `sort-firefox` | #14 Sort and shuffle |
 | 1.4 | `filter-firefox` | #15 Filter, including that typing doesn't trigger YouTube's shortcuts |
 | 1.4 | `playlist-firefox` | #16 Queue a playlist, and its "check first": reading a playlist without sign-in, past the first page |
+| 1.5 | `shelf-firefox` | #18 Shelf, including a browser restart and 1.4 data |
+| 1.5 | `share-firefox` | #19 Share link, and its "check first": YouTube opens watch_videos links as a playlist, in order |
 
 `playlist-firefox` finds a short (one page, under 100 videos) and a long (several pages) public playlist in YouTube's search results. To pin them, set `CUE_E2E_PLAYLIST` and `CUE_E2E_BIG_PLAYLIST` to playlist ids. It saves the long playlist's page data to `<profiles>/playlist-capture.json`, which can replace the hand-written fixture in `src/domain/fixtures/`.
 
