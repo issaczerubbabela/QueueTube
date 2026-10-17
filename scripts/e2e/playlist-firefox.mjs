@@ -52,7 +52,13 @@ function firstPage(data) {
       if (n.playlistVideoRenderer.isPlayable !== false && !ids.includes(n.playlistVideoRenderer.videoId)) ids.push(n.playlistVideoRenderer.videoId);
       return;
     }
+    // YouTube's newer layout, which it serves for some playlist pages.
+    if (n.lockupViewModel?.contentId) {
+      if (n.lockupViewModel.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO' && !ids.includes(n.lockupViewModel.contentId)) ids.push(n.lockupViewModel.contentId);
+      return;
+    }
     if (n.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token) more = true;
+    if (n.continuationItemViewModel?.continuationCommand?.innertubeCommand?.continuationCommand?.token) more = true;
     Object.values(n).forEach(walk);
   };
   walk(data);
@@ -66,7 +72,7 @@ async function findPlaylists() {
   const found = { small: process.env.CUE_E2E_PLAYLIST ?? null, big: process.env.CUE_E2E_BIG_PLAYLIST ?? null };
   if (found.small && found.big) return found;
   const candidates = new Set();
-  for (const q of ['music playlist', 'top songs playlist', 'lofi playlist', 'documentary playlist']) {
+  for (const q of ['music playlist', 'full album playlist', 'top songs playlist', 'lofi playlist', 'documentary playlist']) {
     const html = await fetchPage(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}&sp=EgIQAw%253D%253D`);
     for (const m of html.matchAll(/[?&]list=([\w-]{10,64})/g)) if (!m[1].startsWith('RD')) candidates.add(m[1]);
     if (candidates.size >= 20) break;
