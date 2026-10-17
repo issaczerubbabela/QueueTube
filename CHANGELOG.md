@@ -8,6 +8,7 @@ What changed in each version of Cue, newest first. This file is shown in Cue's s
 - The panel header shows when the queue will finish: "1 h 12 min left · ends 10:42 PM".
 - **Rearrange what's next** from the panel's ⋮ menu: **Shortest first**, **Longest first**, **By channel** or **Shuffle**. Only the videos after the one playing move, and Undo puts your own order back.
 - A **filter** box above the queue finds videos by title or channel. Press Esc to clear it. Dragging to reorder is off while it's in use.
+- **Queue a whole playlist**: right-click a YouTube playlist link and choose **Add playlist to queue**, use the **Queue this playlist** button on a playlist's page, or choose **Queue this playlist** in the panel's ⋮ menu while you're watching a video from a playlist. Playlists of more than 100 videos ask first. Opening a playlist video in a new tab still queues just that video.
 
 ## 1.3.0
 

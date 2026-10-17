@@ -2,7 +2,7 @@
 // selection links to or mentions.
 import browser from 'webextension-polyfill';
 import type { Position } from '../domain/queue';
-import { VideoLink, findVideoLinks, parseVideoLink, startTimes } from '../domain/youtube';
+import { VideoLink, findVideoLinks, parsePlaylistId, parseVideoLink, startTimes } from '../domain/youtube';
 
 const VIDEO_LINKS = ['www.youtube.com', 'youtube.com', 'm.youtube.com']
   .flatMap((host) => [`*://${host}/watch*`, `*://${host}/shorts/*`, `*://${host}/live/*`])
@@ -14,12 +14,18 @@ const LINK_ITEMS: { id: string; title: string; at: Position }[] = [
 ];
 const QUEUE_ALL = 'cue-queue-all';
 
+const PLAYLIST_LINKS = ['www.youtube.com', 'youtube.com', 'm.youtube.com']
+  .flatMap((host) => [`*://${host}/playlist*`, `*://${host}/watch*list=*`])
+  .concat('*://youtu.be/*list=*');
+const ADD_PLAYLIST = 'cue-add-playlist';
+
 /** Menus persist in Chrome but not across every Firefox restart, so they are rebuilt on each launch. */
 export async function createMenus(): Promise<void> {
   await browser.contextMenus.removeAll();
   for (const { id, title } of LINK_ITEMS) {
     browser.contextMenus.create({ id, title, contexts: ['link'], targetUrlPatterns: VIDEO_LINKS });
   }
+  browser.contextMenus.create({ id: ADD_PLAYLIST, title: 'Add playlist to queue', contexts: ['link'], targetUrlPatterns: PLAYLIST_LINKS });
   browser.contextMenus.create({ id: QUEUE_ALL, title: 'Queue all YouTube links here', contexts: ['page', 'selection'] });
 }
 
@@ -60,10 +66,19 @@ async function videosOnPage(tabId: number | undefined, info: browser.Menus.OnCli
 }
 
 type Add = (videoIds: string[], at: Position, starts: Record<string, number>) => Promise<unknown>;
+type AddPlaylist = (listId: string, tabId: number | undefined, frameId: number | undefined) => Promise<unknown>;
 
-/** Calls `add` with the videos a menu item was used on, and the start times their links ask for. */
-export function onMenuClick(add: Add): void {
+/**
+ * Calls `add` with the videos a menu item was used on, and the start times their links ask for,
+ * or `addPlaylist` with the playlist a link points at.
+ */
+export function onMenuClick(add: Add, addPlaylist: AddPlaylist): void {
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
+    if (info.menuItemId === ADD_PLAYLIST) {
+      const listId = parsePlaylistId(info.linkUrl);
+      if (listId) await addPlaylist(listId, tab?.id, info.frameId);
+      return;
+    }
     if (info.menuItemId === QUEUE_ALL) {
       const links = await videosOnPage(tab?.id, info);
       if (links.length > 0) await add(links.map((l) => l.videoId), 'end', startTimes(links));

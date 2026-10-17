@@ -51,6 +51,10 @@ export const GUIDE: GuideGroup[] = [
         text: 'Right-click a page, or some selected text, and choose Queue all YouTube links here to queue every video it links to or mentions, in order.',
       },
       {
+        title: 'Queue a playlist',
+        text: "Right-click a playlist link and choose Add playlist to queue, press Queue this playlist on a playlist's page, or choose Queue this playlist in the panel's ⋮ menu while watching from a playlist. Over 100 videos, Cue asks first.",
+      },
+      {
         title: 'Gather open tabs',
         text: "Sweep every open YouTube video tab into the queue and close them: choose Gather open tabs in the panel's ⋮ menu or in the popup.",
         shortcut: 'gather-tabs',

@@ -164,3 +164,151 @@ export function formatDuration(totalSeconds: number | null | undefined): string 
   const sec = String(s % 60).padStart(2, '0');
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
+
+// ── Playlists ────────────────────────────────────────────────────────────────
+
+const PLAYLIST_ID = /^[\w-]{2,64}$/;
+/** Watch later, Liked videos and Liked music only exist for a signed-in user. */
+const PRIVATE_PLAYLISTS = new Set(['WL', 'LL', 'LM']);
+
+/** The playlist a /playlist page, or a watch link played from a playlist (`list=`), points at. */
+export function parsePlaylistId(url: string | undefined): string | null {
+  const parsed = parse(url);
+  if (!parsed || !(VIDEO_HOSTS.has(parsed.hostname) || parsed.hostname === 'youtu.be')) return null;
+  const isPlaylistPage = parsed.pathname === '/playlist';
+  const isVideo = parsed.hostname === 'youtu.be' || parsed.pathname === '/watch' || /^\/(shorts|live)\//.test(parsed.pathname);
+  if (!isPlaylistPage && !isVideo) return null;
+  const list = parsed.searchParams.get('list');
+  return list && PLAYLIST_ID.test(list) && !PRIVATE_PLAYLISTS.has(list) ? list : null;
+}
+
+export const playlistPageUrl = (listId: string) => `https://www.youtube.com/playlist?list=${encodeURIComponent(listId)}`;
+
+/**
+ * The JSON object assigned to `name` in a page's scripts (`var ytInitialData = {…};`), or null.
+ * Scans braces outside strings, since the object is far too large for a regex.
+ */
+export function extractPageData(html: string, name = 'ytInitialData'): unknown {
+  const at = html.search(new RegExp(`(?:var\\s+${name}|window\\[["']${name}["']\\]|\\b${name})\\s*=\\s*\\{`));
+  if (at < 0) return null;
+  const start = html.indexOf('{', at);
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < html.length; i++) {
+    const c = html[i];
+    if (inString) {
+      if (c === '\\') i++;
+      else if (c === '"') inString = false;
+    } else if (c === '"') inString = true;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) {
+      try {
+        return JSON.parse(html.slice(start, i + 1));
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+/** A video as a playlist lists it, with whatever details it gives. */
+export type PlaylistVideo = { videoId: string; title: string; channel: string; durationSec: number | null };
+
+export interface PlaylistPage {
+  videos: PlaylistVideo[];
+  /** Token for the next page of a long playlist, or null on the last page. */
+  continuation: string | null;
+}
+
+const runsText = (value: unknown): string => {
+  const v = value as { simpleText?: string; runs?: { text?: string }[]; content?: string } | undefined;
+  return v?.simpleText ?? v?.content ?? v?.runs?.map((r) => r.text ?? '').join('') ?? '';
+};
+
+/**
+ * The videos (in order) and the next-page token in YouTube's playlist data: a playlist page's
+ * ytInitialData or a continuation response. It walks the whole object instead of following one
+ * path, so a reshuffle of YouTube's layout doesn't break it. Unplayable (deleted or private)
+ * videos are skipped.
+ */
+export function playlistVideos(data: unknown): PlaylistPage {
+  const videos: PlaylistVideo[] = [];
+  const seen = new Set<string>();
+  let continuation: string | null = null;
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (typeof node !== 'object' || node === null) return;
+    const o = node as Record<string, any>;
+    const item = o.playlistVideoRenderer;
+    if (item && typeof item.videoId === 'string') {
+      if (item.isPlayable !== false && VIDEO_ID.test(item.videoId) && !seen.has(item.videoId)) {
+        seen.add(item.videoId);
+        const length = Number(item.lengthSeconds);
+        videos.push({ videoId: item.videoId, title: runsText(item.title), channel: runsText(item.shortBylineText), durationSec: length > 0 ? length : null });
+      }
+      return;
+    }
+    const token = o.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token;
+    if (typeof token === 'string') {
+      continuation = token;
+      return;
+    }
+    Object.values(o).forEach(walk);
+  };
+  walk(data);
+  return { videos, continuation };
+}
+
+/** What a page tells scripts about calling YouTube's own API for more of a list. */
+export function innertubeConfig(html: string): { apiKey: string | null; clientVersion: string } {
+  return {
+    apiKey: /"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"/.exec(html)?.[1] ?? null,
+    clientVersion: /"INNERTUBE_CLIENT_VERSION"\s*:\s*"([^"]+)"/.exec(html)?.[1] ?? /"clientVersion"\s*:\s*"([\d.]+)"/.exec(html)?.[1] ?? '2.20250101.00.00',
+  };
+}
+
+export interface FetchedPlaylist {
+  videos: PlaylistVideo[];
+  /** False when YouTube stopped sending pages before the end of the list. */
+  complete: boolean;
+}
+
+/**
+ * Every video in a public playlist, read from its page and the pages after it, as YouTube's own
+ * site does. No sign-in and no API key of ours: requests go without the user's cookies.
+ * Null when the playlist can't be read at all.
+ */
+export async function fetchPlaylist(listId: string, { maxPages = 100, timeoutMs = 15000 } = {}): Promise<FetchedPlaylist | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs * 4);
+  try {
+    const res = await fetch(playlistPageUrl(listId), { credentials: 'omit', signal: controller.signal });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const first = playlistVideos(extractPageData(html));
+    if (first.videos.length === 0) return null;
+    const { apiKey, clientVersion } = innertubeConfig(html);
+    const videos = [...first.videos];
+    const seen = new Set(videos.map((v) => v.videoId));
+    let token = first.continuation;
+    for (let page = 1; token && page < maxPages; page++) {
+      const more = await fetch(`https://www.youtube.com/youtubei/v1/browse?prettyPrint=false${apiKey ? `&key=${apiKey}` : ''}`, {
+        method: 'POST',
+        credentials: 'omit',
+        signal: controller.signal,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ context: { client: { clientName: 'WEB', clientVersion, hl: 'en' } }, continuation: token }),
+      }).catch(() => null);
+      if (!more?.ok) return { videos, complete: false };
+      const next = playlistVideos(await more.json());
+      for (const v of next.videos) if (!seen.has(v.videoId)) seen.add(v.videoId), videos.push(v);
+      token = next.continuation;
+    }
+    return { videos, complete: token === null };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}

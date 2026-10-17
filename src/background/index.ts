@@ -2,8 +2,8 @@
 import browser from 'webextension-polyfill';
 import * as P from '../domain/progress';
 import * as Q from '../domain/queue';
-import { fetchDuration, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, parseVideoLink, startTimes } from '../domain/youtube';
-import type { Command, OptionsSection, RoleQuery, Status, TabMessage } from '../shared/messages';
+import { FetchedPlaylist, fetchDuration, fetchPlaylist, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, parseVideoLink, startTimes } from '../domain/youtube';
+import { Command, OptionsSection, PLAYLIST_CONFIRM_ABOVE, PlaylistReply, RoleQuery, Status, TabMessage } from '../shared/messages';
 import { createMenus, onMenuClick } from './menus';
 import { currentPlayer, electPlayer, focusPlayer, focusTab, loadVideo, setPlayer } from './player';
 import {
@@ -81,11 +81,61 @@ function describeLater(videoIds: string[]): void {
  * from their links (`t=`) replace saved Watch progress, whether or not the video was added.
  */
 async function add(videoIds: string[], at: Q.Position = 'end', starts?: Record<string, number>): Promise<{ added: number }> {
-  const before = (await loadQueue()).entries.length;
   await applyProgress((p) => P.setStarts(p, starts));
-  await apply((q, s) => Q.enqueue(q, videoIds.map(blankVideo), s, at));
-  describeLater(videoIds);
+  return addVideos(videoIds.map(blankVideo), at);
+}
+
+/** Adds videos whose details may already be known; only the missing ones are fetched. */
+async function addVideos(videos: Q.Video[], at: Q.Position = 'end'): Promise<{ added: number }> {
+  const before = (await loadQueue()).entries.length;
+  await apply((q, s) => Q.enqueue(q, videos, s, at));
+  describeLater([...new Set(videos.filter((v) => !v.title || !v.durationSec).map((v) => v.videoId))]);
   return { added: (await loadQueue()).entries.length - before };
+}
+
+// ── Playlists ────────────────────────────────────────────────────────────────
+
+/** The last playlist read, so confirming a long one doesn't read it again. */
+let lastPlaylist: { listId: string; at: number; playlist: FetchedPlaylist } | null = null;
+
+async function readPlaylist(listId: string): Promise<FetchedPlaylist | null> {
+  if (lastPlaylist?.listId === listId && Date.now() - lastPlaylist.at < 120_000) return lastPlaylist.playlist;
+  const playlist = await fetchPlaylist(listId);
+  if (playlist) lastPlaylist = { listId, at: Date.now(), playlist };
+  return playlist;
+}
+
+/**
+ * Queues a playlist at the end, in order. Long ones need `confirmed`. Reading the playlist
+ * happens outside `serial`, so the queue stays responsive meanwhile.
+ */
+async function queuePlaylist(listId: string, confirmed = false): Promise<PlaylistReply> {
+  const playlist = await readPlaylist(listId);
+  if (!playlist) return { status: 'failed' };
+  const total = playlist.videos.length;
+  if (total > PLAYLIST_CONFIRM_ABOVE && !confirmed) return { status: 'confirm', total };
+  const { added } = await serial(() => addVideos(playlist.videos));
+  return { status: 'queued', added, total, complete: playlist.complete };
+}
+
+/** Asks "Queue all 742 videos?" in the tab a right-click came from. False if it can't ask there. */
+async function confirmInTab(tabId: number | undefined, frameId: number | undefined, total: number): Promise<boolean> {
+  if (tabId === undefined) return false;
+  try {
+    const [frame] = await browser.scripting.executeScript({
+      target: { tabId, frameIds: [frameId ?? 0] },
+      func: (n: number) => confirm(`Queue all ${n} videos?`),
+      args: [total],
+    });
+    return frame?.result === true;
+  } catch {
+    return false;
+  }
+}
+
+async function queuePlaylistFromMenu(listId: string, tabId?: number, frameId?: number): Promise<void> {
+  const reply = await queuePlaylist(listId);
+  if (reply.status === 'confirm' && (await confirmInTab(tabId, frameId, reply.total))) await queuePlaylist(listId, true);
 }
 
 /** Applies an operation that removes or rearranges entries, keeping what Undo needs to put them back. */
@@ -344,10 +394,15 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
 browser.runtime.onMessage.addListener((message: unknown, sender) => {
   const command = message as Command | RoleQuery;
   if (!command || typeof command.type !== 'string') return undefined;
+  // Reading a playlist takes a while; it takes its turn in `serial` only to add the videos.
+  if (command.type === 'playlist/queue') return queuePlaylist(command.listId, command.confirmed);
   return serial(() => handle(command, sender));
 });
 
-onMenuClick((videoIds, at, starts) => serial(() => add(videoIds, at, starts)));
+onMenuClick(
+  (videoIds, at, starts) => serial(() => add(videoIds, at, starts)),
+  (listId, tabId, frameId) => queuePlaylistFromMenu(listId, tabId, frameId)
+);
 
 browser.commands?.onCommand.addListener((name) => {
   serial(async () => {

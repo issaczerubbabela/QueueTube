@@ -8,6 +8,7 @@ import type { RoleQuery, TabMessage } from '../shared/messages';
 import { send } from '../shared/messages';
 import { Sidebar } from '../sidebar/Sidebar';
 import { listenForAltClicks } from './altClick';
+import { showPlaylistButton } from './playlistButton';
 import { cancelAutoplay, pauseAtStopPoint } from './stopPoint';
 import { reportWatchProgress } from './watchProgress';
 import sidebarCss from '../sidebar/sidebar.css?inline';
@@ -137,8 +138,10 @@ window.addEventListener('yt-navigate-finish', schedulePlacement);
 reportWatchProgress(() => isPlayer);
 pauseAtStopPoint(() => isPlayer);
 
-// Every YouTube tab, not just the player: Alt+click a video link to queue it.
+// Every YouTube tab, not just the player: Alt+click a video link to queue it, and queue a
+// playlist from its page.
 listenForAltClicks(HOST_ID);
+showPlaylistButton(HOST_ID);
 
 // ── Wiring ──────────────────────────────────────────────────────────────────
 

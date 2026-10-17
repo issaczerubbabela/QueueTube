@@ -19,14 +19,16 @@ import {
   ArrowDownWideNarrow,
   Users,
   Shuffle,
+  ListVideo as PlaylistIcon,
 } from 'lucide-react';
 import browser from 'webextension-polyfill';
 import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
-import { playlistUrl } from '../domain/youtube';
+import { parsePlaylistId, playlistUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
 import { useExtensionState, useWatchedVideos } from '../shared/state';
 import { EMPTY_QUEUE_HINT, Menu, TimeLeft, Title, Toast, useMenu, useToast } from '../ui/components';
+import { queuePlaylist } from '../ui/playlist';
 import { tintStyle, useTint } from '../ui/tint';
 import { dropVideos, exportQueue, importQueue, mayHoldLinks, pluralVideos } from '../ui/transfer';
 import { HistoryList } from './HistoryList';
@@ -210,6 +212,18 @@ export function Sidebar() {
                     onSelect: () => send({ type: 'options/open', section: 'whats-new' }),
                   },
                   'separator' as const,
+                ]
+              : []),
+            ...(parsePlaylistId(location.href)
+              ? [
+                  {
+                    label: 'Queue this playlist',
+                    icon: <PlaylistIcon />,
+                    onSelect: async () => {
+                      show({ message: 'Reading the playlist…' });
+                      show({ message: await queuePlaylist(parsePlaylistId(location.href)!) });
+                    },
+                  },
                 ]
               : []),
             { label: 'Gather open tabs', icon: <Layers />, onSelect: gather },

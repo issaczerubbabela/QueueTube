@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import playlistContinuation from './fixtures/playlist-continuation.json';
+import playlistPage from './fixtures/playlist-page.json';
 import {
+  extractPageData,
   findVideoIds,
   findVideoLinks,
   formatDuration,
+  innertubeConfig,
   isNewTabPage,
   isYouTubeSite,
+  parsePlaylistId,
   parseStartTime,
   parseVideoId,
   parseVideoLink,
+  playlistVideos,
   startTimes,
   watchUrl,
 } from './youtube';
@@ -140,5 +146,82 @@ describe('formatDuration', () => {
     expect(formatDuration(3725)).toBe('1:02:05');
     expect(formatDuration(null)).toBeNull();
     expect(formatDuration(Infinity)).toBeNull();
+  });
+});
+
+describe('parsePlaylistId', () => {
+  it.each([
+    ['https://www.youtube.com/playlist?list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG', 'PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG'],
+    ['https://youtube.com/playlist?list=OLAK5uy_abc-DEF', 'OLAK5uy_abc-DEF'],
+    ['https://m.youtube.com/playlist?list=PLabc&si=x', 'PLabc'],
+    ['https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLabc&index=3', 'PLabc'],
+    ['https://youtu.be/dQw4w9WgXcQ?list=PLabc', 'PLabc'],
+  ])('reads %s', (url, id) => {
+    expect(parsePlaylistId(url)).toBe(id);
+  });
+
+  it.each([
+    ['a plain video', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'],
+    ['Watch later (needs sign-in)', 'https://www.youtube.com/playlist?list=WL'],
+    ['Liked videos (needs sign-in)', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=LL'],
+    ['YouTube Music', 'https://music.youtube.com/playlist?list=PLabc'],
+    ['a channel page', 'https://www.youtube.com/@YouTube/videos?list=PLabc'],
+    ['an odd id', 'https://www.youtube.com/playlist?list=a%20b'],
+  ])('ignores %s', (_label, url) => {
+    expect(parsePlaylistId(url)).toBeNull();
+  });
+});
+
+describe('playlistVideos', () => {
+  it('reads the videos in order with their details, and the next-page token, from a playlist page', () => {
+    const { videos, continuation } = playlistVideos(playlistPage);
+    expect(videos.map((v) => v.videoId)).toEqual(['dQw4w9WgXcQ', '9bZkp7q19f0', 'kJQP7kiw5Fk']);
+    expect(videos[0]).toEqual({ videoId: 'dQw4w9WgXcQ', title: 'Rick Astley - Never Gonna Give You Up (Official Music Video)', channel: 'Rick Astley', durationSec: 213 });
+    expect(continuation).toBe('4qmFsgJhEiRWTFBMZml4dHVyZRoUQ0FGNkJsQkVPa05IVVElM0QlM0Q%3D');
+  });
+
+  it('skips unplayable (private or deleted) videos', () => {
+    expect(playlistVideos(playlistPage).videos.some((v) => v.videoId === 'aaaaaaaaaaa')).toBe(false);
+  });
+
+  it('reads a continuation response, the last page having no token', () => {
+    const { videos, continuation } = playlistVideos(playlistContinuation);
+    expect(videos.map((v) => v.videoId)).toEqual(['OPf0YbXqDm0', 'fJ9rUzIMcZQ', 'dQw4w9WgXcQ']);
+    expect(continuation).toBeNull();
+  });
+
+  it('finds nothing in unrelated data', () => {
+    expect(playlistVideos({ contents: [] })).toEqual({ videos: [], continuation: null });
+    expect(playlistVideos(null)).toEqual({ videos: [], continuation: null });
+  });
+});
+
+describe('extractPageData', () => {
+  const data = { a: 'curly } and { braces', b: 'quote \\" and </script>', list: [1, { c: 2 }] };
+  const html = `<html><script>var ytcfg = {};</script><script nonce="x">var ytInitialData = ${JSON.stringify(data)};</script><script>var other = {"x":1};</script>`;
+
+  it('reads the object assigned to ytInitialData, braces and quotes in strings included', () => {
+    expect(extractPageData(html)).toEqual(data);
+  });
+
+  it('also reads window["ytInitialData"] = …', () => {
+    expect(extractPageData(`<script>window["ytInitialData"] = {"ok":true};</script>`)).toEqual({ ok: true });
+  });
+
+  it('is null when the page has none, or it is cut short', () => {
+    expect(extractPageData('<html></html>')).toBeNull();
+    expect(extractPageData('var ytInitialData = {"a": [1, 2')).toBeNull();
+  });
+});
+
+describe('innertubeConfig', () => {
+  it('reads the API key and client version from the page config', () => {
+    const html = `ytcfg.set({"INNERTUBE_API_KEY":"AIzaFake","INNERTUBE_CLIENT_VERSION":"2.20261015.01.00"});`;
+    expect(innertubeConfig(html)).toEqual({ apiKey: 'AIzaFake', clientVersion: '2.20261015.01.00' });
+  });
+
+  it('falls back to a recent web client version without a key', () => {
+    expect(innertubeConfig('').apiKey).toBeNull();
+    expect(innertubeConfig('').clientVersion).toMatch(/^2\.\d{8}/);
   });
 });

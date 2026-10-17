@@ -34,6 +34,11 @@ export type Command =
   | { type: 'player/claimActiveTab' }
   | { type: 'tabs/gather' }
   | { type: 'tabs/openFree'; url: string }
+  /**
+   * Queues a whole playlist at the end of the queue. Over PLAYLIST_CONFIRM_ABOVE videos the reply
+   * asks for confirmation first; send again with `confirmed`.
+   */
+  | { type: 'playlist/queue'; listId: string; confirmed?: boolean }
   | { type: 'settings/update'; patch: Partial<Settings> }
   | { type: 'options/open'; section?: OptionsSection }
   | { type: 'whatsNew/seen' }
@@ -49,9 +54,18 @@ export interface Status {
   canUndo: boolean;
 }
 
+/** Playlists longer than this ask before they are queued. */
+export const PLAYLIST_CONFIRM_ABOVE = 100;
+
+export type PlaylistReply =
+  | { status: 'queued'; added: number; total: number; complete: boolean }
+  | { status: 'confirm'; total: number }
+  | { status: 'failed' };
+
 export interface Replies {
   'tabs/gather': { gathered: number };
   'queue/add': { added: number };
+  'playlist/queue': PlaylistReply;
   status: Status;
 }
 
