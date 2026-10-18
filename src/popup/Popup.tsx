@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  CircleHelp,
   Layers,
   ListVideo,
   MonitorPlay,
@@ -8,27 +9,36 @@ import {
   Settings as SettingsIcon,
   SkipBack,
   SkipForward,
+  Sparkles,
   SquarePlay,
 } from 'lucide-react';
 import browser from 'webextension-polyfill';
+import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
-import { Status, send } from '../shared/messages';
-import { useExtensionState } from '../shared/state';
-import { Thumb, Title } from '../ui/components';
-import { formatRemaining, pluralVideos } from '../ui/transfer';
+import { OptionsSection, Status, send } from '../shared/messages';
+import { useExtensionState, useWatchedVideos } from '../shared/state';
+import { EMPTY_QUEUE_HINT, Thumb, TimeLeft, Title } from '../ui/components';
+import { formatShortcut } from '../ui/shortcut';
+import { pluralVideos } from '../ui/transfer';
 
 // Browsers cap extension popups at 600px tall; this keeps the popup inside that.
 const UP_NEXT_LIMIT = 2;
 
 /** Laid out like YouTube's own dropdown menus: a header, then 40px icon rows between dividers. */
 export function Popup() {
-  const { ready, queue, settings } = useExtensionState();
+  const { ready, queue, settings, lastSeenVersion } = useExtensionState();
   const [status, setStatus] = useState<Status | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shortcuts, setShortcuts] = useState<Record<string, string>>({});
+  const watched = useWatchedVideos();
 
   const refreshStatus = () => send({ type: 'status' }).then(setStatus).catch(() => {});
   useEffect(() => {
     refreshStatus();
+    browser.commands
+      ?.getAll()
+      .then((all) => setShortcuts(Object.fromEntries(all.map((c) => [c.name ?? '', c.shortcut ?? '']))))
+      .catch(() => {});
   }, []);
 
   if (!ready || !status) return <div className="popup loading" />;
@@ -37,8 +47,8 @@ export function Popup() {
   const hasPlayer = status.playerTabId !== null;
   const index = Q.currentIndex(queue);
   const total = queue.entries.length;
-  const remaining = formatRemaining(Q.remainingSeconds(queue));
   const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
+  const whatsNew = whatsNewVersion(lastSeenVersion, browser.runtime.getManifest().version);
   // What the player shows, with whatever details we know about it.
   const nowVideo: Q.Video | null = queue.nowPlaying
     ? [...queue.entries, ...queue.history].find((v) => v.videoId === queue.nowPlaying) ??
@@ -51,6 +61,12 @@ export function Popup() {
     refreshStatus();
   };
 
+  const openOptions = async (section: OptionsSection) => {
+    await send({ type: 'options/open', section });
+    window.close();
+  };
+  const shortcut = (name: string) => shortcuts[name] && <kbd>{formatShortcut(shortcuts[name])}</kbd>;
+
   const goToPlayer = async () => {
     await send({ type: 'player/focus' });
     window.close();
@@ -61,13 +77,28 @@ export function Popup() {
       <header className="top">
         <img src="/icons/icon48.png" alt="" className="logo" />
         <div className="top-text">
-          <h1>QueueTube</h1>
-          <p>{[position, remaining].filter(Boolean).join(' · ')}</p>
+          <h1>Cue</h1>
+          <p>
+            {position}
+            <TimeLeft queue={queue} lead=" · " />
+          </p>
         </div>
-        <button className="icon-btn" onClick={() => browser.runtime.openOptionsPage()} aria-label="Settings" title="Settings">
-          <SettingsIcon />
-        </button>
+        <span className="top-actions">
+          <button className="icon-btn" onClick={() => openOptions('guide')} aria-label="Guide" title="Guide">
+            <CircleHelp />
+          </button>
+          <button className="icon-btn" onClick={() => browser.runtime.openOptionsPage()} aria-label="Settings" title="Settings">
+            <SettingsIcon />
+          </button>
+        </span>
       </header>
+
+      {whatsNew && (
+        <button className="item whats-new" onClick={() => openOptions('whats-new')}>
+          <Sparkles aria-hidden="true" />
+          What's new in {whatsNew}
+        </button>
+      )}
 
       <hr />
 
@@ -81,11 +112,12 @@ export function Popup() {
               {nowVideo.channel && <span className="video-channel">{nowVideo.channel}</span>}
             </span>
           </button>
+        ) : !hasPlayer ? (
+          <p className="placeholder">No player tab yet. The YouTube tab you open becomes the player.</p>
         ) : (
-          <p className="placeholder">
-            {hasPlayer ? 'The player is ready. Pick something from the queue to start.' : 'No player tab yet. The YouTube tab you open becomes the player.'}
-          </p>
+          total > 0 && <p className="placeholder">The player is ready. Pick something from the queue to start.</p>
         )}
+        {total === 0 && <p className="placeholder">{EMPTY_QUEUE_HINT}</p>}
       </section>
 
       {upcoming.length > 0 && (
@@ -127,12 +159,12 @@ export function Popup() {
         <button className="item" disabled={!Q.canGoBack(queue, settings)} onClick={() => send({ type: 'play/previous' })}>
           <SkipBack aria-hidden="true" />
           Play previous
-          <kbd>Alt+Shift+,</kbd>
+          {shortcut('previous-video')}
         </button>
-        <button className="item" disabled={!Q.nextEntry(queue)} onClick={() => send({ type: 'play/next' })}>
+        <button className="item" disabled={!Q.nextEntry(queue, Q.skipped(settings, watched))} onClick={() => send({ type: 'play/next' })}>
           <SkipForward aria-hidden="true" />
           Play next
-          <kbd>Alt+Shift+.</kbd>
+          {shortcut('next-video')}
         </button>
       </nav>
 
@@ -142,7 +174,7 @@ export function Popup() {
         <button className="item" onClick={gather}>
           <Layers aria-hidden="true" />
           Gather open tabs
-          <kbd>Alt+Shift+Q</kbd>
+          {shortcut('gather-tabs')}
         </button>
         <button
           className="item"
@@ -151,7 +183,7 @@ export function Popup() {
         >
           {settings.sidebarCollapsed ? <PanelRightOpen aria-hidden="true" /> : <PanelRightClose aria-hidden="true" />}
           {settings.sidebarCollapsed ? 'Expand queue panel' : 'Collapse queue panel'}
-          <kbd>Alt+Shift+L</kbd>
+          {shortcut('toggle-queue')}
         </button>
         <label className="item">
           <ListVideo aria-hidden="true" />

@@ -1,0 +1,319 @@
+{
+ "responseContext": {
+  "serviceTrackingParams": []
+ },
+ "contents": {
+  "twoColumnBrowseResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "selected": true,
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "playlistVideoListRenderer": {
+              "contents": [
+               {
+                "playlistVideoRenderer": {
+                 "videoId": "dQw4w9WgXcQ",
+                 "thumbnail": {
+                  "thumbnails": [
+                   {
+                    "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+                    "width": 168,
+                    "height": 94
+                   }
+                  ]
+                 },
+                 "title": {
+                  "runs": [
+                   {
+                    "text": "Rick Astley - Never Gonna Give You Up (Official Music Video)"
+                   }
+                  ],
+                  "accessibility": {
+                   "accessibilityData": {
+                    "label": "Rick Astley - Never Gonna Give You Up (Official Music Video)"
+                   }
+                  }
+                 },
+                 "index": {
+                  "simpleText": "1"
+                 },
+                 "shortBylineText": {
+                  "runs": [
+                   {
+                    "text": "Rick Astley",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UC123"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "lengthText": {
+                  "simpleText": "3:33"
+                 },
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "dQw4w9WgXcQ",
+                   "playlistId": "PLfixture"
+                  }
+                 },
+                 "lengthSeconds": "213",
+                 "isPlayable": true,
+                 "videoInfo": {
+                  "runs": [
+                   {
+                    "text": "1.2B views"
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "playlistVideoRenderer": {
+                 "videoId": "aaaaaaaaaaa",
+                 "thumbnail": {
+                  "thumbnails": [
+                   {
+                    "url": "https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg",
+                    "width": 168,
+                    "height": 94
+                   }
+                  ]
+                 },
+                 "title": {
+                  "runs": [
+                   {
+                    "text": "[Private video]"
+                   }
+                  ]
+                 },
+                 "index": {
+                  "simpleText": "1"
+                 },
+                 "lengthText": {
+                  "simpleText": "3:33"
+                 },
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "aaaaaaaaaaa",
+                   "playlistId": "PLfixture"
+                  }
+                 },
+                 "isPlayable": false,
+                 "videoInfo": {
+                  "runs": [
+                   {
+                    "text": "1.2B views"
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "playlistVideoRenderer": {
+                 "videoId": "9bZkp7q19f0",
+                 "thumbnail": {
+                  "thumbnails": [
+                   {
+                    "url": "https://i.ytimg.com/vi/9bZkp7q19f0/hqdefault.jpg",
+                    "width": 168,
+                    "height": 94
+                   }
+                  ]
+                 },
+                 "title": {
+                  "runs": [
+                   {
+                    "text": "PSY - GANGNAM STYLE(강남스타일) M/V"
+                   }
+                  ],
+                  "accessibility": {
+                   "accessibilityData": {
+                    "label": "PSY - GANGNAM STYLE(강남스타일) M/V"
+                   }
+                  }
+                 },
+                 "index": {
+                  "simpleText": "1"
+                 },
+                 "shortBylineText": {
+                  "runs": [
+                   {
+                    "text": "officialpsy",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UC123"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "lengthText": {
+                  "simpleText": "3:33"
+                 },
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "9bZkp7q19f0",
+                   "playlistId": "PLfixture"
+                  }
+                 },
+                 "lengthSeconds": "253",
+                 "isPlayable": true,
+                 "videoInfo": {
+                  "runs": [
+                   {
+                    "text": "1.2B views"
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "playlistVideoRenderer": {
+                 "videoId": "kJQP7kiw5Fk",
+                 "thumbnail": {
+                  "thumbnails": [
+                   {
+                    "url": "https://i.ytimg.com/vi/kJQP7kiw5Fk/hqdefault.jpg",
+                    "width": 168,
+                    "height": 94
+                   }
+                  ]
+                 },
+                 "title": {
+                  "runs": [
+                   {
+                    "text": "Luis Fonsi - Despacito ft. Daddy Yankee"
+                   }
+                  ],
+                  "accessibility": {
+                   "accessibilityData": {
+                    "label": "Luis Fonsi - Despacito ft. Daddy Yankee"
+                   }
+                  }
+                 },
+                 "index": {
+                  "simpleText": "1"
+                 },
+                 "shortBylineText": {
+                  "runs": [
+                   {
+                    "text": "Luis Fonsi",
+                    "navigationEndpoint": {
+                     "browseEndpoint": {
+                      "browseId": "UC123"
+                     }
+                    }
+                   }
+                  ]
+                 },
+                 "lengthText": {
+                  "simpleText": "3:33"
+                 },
+                 "navigationEndpoint": {
+                  "watchEndpoint": {
+                   "videoId": "kJQP7kiw5Fk",
+                   "playlistId": "PLfixture"
+                  }
+                 },
+                 "lengthSeconds": "282",
+                 "isPlayable": true,
+                 "videoInfo": {
+                  "runs": [
+                   {
+                    "text": "1.2B views"
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "continuationItemRenderer": {
+                 "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                 "continuationEndpoint": {
+                  "clickTrackingParams": "x",
+                  "commandMetadata": {
+                   "webCommandMetadata": {
+                    "sendPost": true,
+                    "apiUrl": "/youtubei/v1/browse"
+                   }
+                  },
+                  "continuationCommand": {
+                   "token": "4qmFsgJhEiRWTFBMZml4dHVyZRoUQ0FGNkJsQkVPa05IVVElM0QlM0Q%3D",
+                   "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                  }
+                 }
+                }
+               }
+              ],
+              "playlistId": "PLfixture",
+              "isEditable": false,
+              "canReorder": false
+             }
+            }
+           ]
+          }
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  }
+ },
+ "header": {
+  "pageHeaderRenderer": {
+   "pageTitle": "Fixture playlist",
+   "content": {
+    "pageHeaderViewModel": {
+     "metadata": {
+      "contentMetadataViewModel": {
+       "metadataRows": [
+        {
+         "metadataParts": [
+          {
+           "text": {
+            "content": "6 videos"
+           }
+          }
+         ]
+        }
+       ]
+      }
+     }
+    }
+   }
+  }
+ },
+ "sidebar": {
+  "playlistSidebarRenderer": {
+   "items": [
+    {
+     "playlistSidebarPrimaryInfoRenderer": {
+      "stats": [
+       {
+        "runs": [
+         {
+          "text": "6"
+         },
+         {
+          "text": " videos"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

@@ -1,11 +1,11 @@
-# QueueTube
+# Cue
 
-QueueTube turns YouTube into a single-player experience: one browser tab plays videos, and every other video the user opens becomes an entry in a queue.
+Cue turns YouTube into a single-player experience: one browser tab plays videos, and every other video the user opens becomes an entry in a queue.
 
 ## Language
 
 **Player tab**:
-The one browser tab on www.youtube.com that QueueTube plays videos in. There is at most one.
+The one browser tab on www.youtube.com that Cue plays videos in. There is at most one.
 _Avoid_: master tab, master player
 
 **Queue**:
@@ -29,8 +29,24 @@ Videos that were advanced past, most recent first, capped in length.
 **Advance**:
 Moving the **Current entry** forward, either because the playing video ended (when **Auto-advance** is on) or because the user skipped. With **Remove after playing** on, the entry left behind leaves the **Queue**.
 
+**Shelf**:
+An ordered list of videos set aside outside the **Queue**. Nothing on the Shelf plays by itself; a video has to be moved back into the **Queue** first. It has no current entry, no undo, and adds nothing to **History**.
+_Avoid_: later, watch later, stash, saved queue
+
+**Watched**:
+A video that has ended, or whose **Watch progress** has reached most of its length. Not the same as being in **History**, which only means the **Queue** moved past it.
+_Avoid_: played, seen
+
+**Watch progress**:
+How far into a video the user has got. It belongs to the video, not to an **Entry**, so the same video resumes from the same point wherever it shows up. Kept only for recently watched videos.
+_Avoid_: resume point, timestamp
+
+**Stop point**:
+The **Entry** after which playback pauses instead of **Advancing**. There is at most one; it clears itself once it has stopped playback.
+_Avoid_: pause after, sleep
+
 **Fresh tab**:
-A tab the user opened while QueueTube was running that has not yet shown any page other than a new-tab page. Only a fresh tab landing on a watch page is **Auto-queued**.
+A tab the user opened while Cue was running that has not yet shown any page other than a new-tab page. Only a fresh tab landing on a watch page is **Auto-queued**.
 
 **Auto-queue**:
 Taking a **Fresh tab** that opened a YouTube video (www.youtube.com, m.youtube.com or a youtu.be link), adding the video to the **Queue** as an **Entry**, and closing the tab.
@@ -41,14 +57,18 @@ A one-off user action that sweeps every open www.youtube.com watch tab (other th
 _Avoid_: consolidate
 
 **Free tab**:
-A YouTube tab the user explicitly opened outside QueueTube (e.g. "Open in new tab"). It is never **Auto-queued** or **Gathered**.
+A YouTube tab the user explicitly opened outside Cue (e.g. "Open in new tab"). It is never **Auto-queued** or **Gathered**.
 
 ## Relationships
 
 - There is at most one **Player tab**; the **Queue** exists whether or not there is one.
 - A **Queue** has zero or one **Current entry**.
+- A **Queue** has zero or one **Stop point**, and it is always one of its **Entries**.
+- **Watch progress** is per video: two **Entries** for the same video share it.
+- A video is on the **Shelf** or in the **Queue**, and moving it between them is the only way across.
+- A **Watched** video can still be in the **Queue**; skipping or clearing watched entries is up to the user.
 - **Auto-queue** applies only to **Fresh tabs**; **Gather** applies to any non-**Free**, non-**Player** watch tab.
-- YouTube Music, YouTube Studio and other youtube.com subdomains are outside QueueTube's world: never a **Player tab**, never **Auto-queued**, never **Gathered**.
+- YouTube Music, YouTube Studio and other youtube.com subdomains are outside Cue's world: never a **Player tab**, never **Auto-queued**, never **Gathered**.
 
 ## Example dialogue
 

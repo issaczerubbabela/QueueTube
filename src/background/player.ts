@@ -27,7 +27,7 @@ async function ensureContentScript(tabId: number): Promise<void> {
   try {
     await browser.scripting.executeScript({ target: { tabId }, files: ['content/index.js'] });
   } catch (err) {
-    console.warn('[QueueTube] Could not inject content script into tab', tabId, err);
+    console.warn('[Cue] Could not inject content script into tab', tabId, err);
   }
 }
 
@@ -74,6 +74,26 @@ export async function electPlayer(book: TabBook): Promise<{ tabId: number; video
   return { tabId: pick.id, videoId: parseVideoId(pick.url) };
 }
 
+/**
+ * Sends a message to Cue's content script in a www.youtube.com tab, the player tab first, and
+ * returns the first reply. Undefined when no YouTube tab has the content script.
+ */
+export async function askYouTubeTab<T>(book: TabBook, message: TabMessage): Promise<T | undefined> {
+  const playerId = await currentPlayer(book);
+  const others = (await browser.tabs.query({ url: '*://www.youtube.com/*' }))
+    .map((t) => t.id)
+    .filter((id): id is number => id !== undefined && id !== playerId);
+  for (const tabId of playerId === null ? others : [playerId, ...others]) {
+    try {
+      const reply = (await browser.tabs.sendMessage(tabId, message)) as T | undefined;
+      if (reply !== undefined) return reply;
+    } catch {
+      // No content script in that tab (e.g. opened before an update).
+    }
+  }
+  return undefined;
+}
+
 export async function focusTab(tabId: number): Promise<void> {
   const tab = await browser.tabs.update(tabId, { active: true });
   if (tab?.windowId !== undefined) await browser.windows.update(tab.windowId, { focused: true });
@@ -87,15 +107,18 @@ export async function focusPlayer(book: TabBook): Promise<void> {
   if (tab.id !== undefined) await setPlayer(book, tab.id, true);
 }
 
-/** Loads a video in the player tab, opening a new player tab if there is none. */
-export async function loadVideo(book: TabBook, videoId: string): Promise<void> {
+/**
+ * Loads a video in the player tab, opening a new player tab if there is none. `startSec` (its
+ * Watch progress) is passed to YouTube as `t=`. A video already on screen is left playing.
+ */
+export async function loadVideo(book: TabBook, videoId: string, startSec: number | null = null): Promise<void> {
   const playerId = await currentPlayer(book);
   if (playerId === null) {
-    const tab = await browser.tabs.create({ url: watchUrl(videoId), active: true });
+    const tab = await browser.tabs.create({ url: watchUrl(videoId, startSec), active: true });
     if (tab.id !== undefined) await setPlayer(book, tab.id, true);
     return;
   }
   const tab = await getTab(playerId);
   if (parseVideoId(tab?.url) === videoId) return;
-  await browser.tabs.update(playerId, { url: watchUrl(videoId) });
+  await browser.tabs.update(playerId, { url: watchUrl(videoId, startSec) });
 }

@@ -1,14 +1,14 @@
-# QueueTube 🎥
+# Cue for YouTube 🎥
 
-> **QueueTube** transforms YouTube into a **single-player experience**.
+> **Cue** (formerly QueueTube) transforms YouTube into a **single-player experience**.
 
-Instead of allowing dozens of YouTube tabs to accumulate across your browser, QueueTube maintains **one persistent YouTube player tab** while every newly opened video becomes an item in an extension-managed queue.
+Instead of allowing dozens of YouTube tabs to accumulate across your browser, Cue maintains **one persistent YouTube player tab** while every newly opened video becomes an item in an extension-managed queue.
 
 ---
 
 ## ✨ Features
 
-- 🎯 **One player tab**: QueueTube plays everything in a single YouTube tab.
+- 🎯 **One player tab**: Cue plays everything in a single YouTube tab.
 - ⚡ **Auto-queue**: a YouTube video you open in a *new* tab joins the queue and the tab closes. Tabs you're already browsing in, YouTube Music, and YouTube Studio are never touched.
 - 📦 **Gather tabs**: sweep every open YouTube video tab into the queue at once.
 - 🎨 **Native-feeling queue panel** inside YouTube's sidebar, styled like YouTube's own playlist panel and following its light/dark theme, with durations and time remaining.
@@ -66,4 +66,4 @@ The compiled extension will be output to `dist/`.
 ---
 
 ## 📄 License
-MIT © QueueTube Team
+MIT © Cue Team

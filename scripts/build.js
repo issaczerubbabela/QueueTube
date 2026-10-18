@@ -20,7 +20,7 @@ async function script(name, entry) {
     build: {
       outDir: resolve(dist, name),
       emptyOutDir: false,
-      lib: { entry: resolve(root, entry), name: `QueueTube_${name}`, formats: ['iife'], fileName: () => 'index.js' },
+      lib: { entry: resolve(root, entry), name: `Cue_${name}`, formats: ['iife'], fileName: () => 'index.js' },
     },
   });
 }
@@ -46,4 +46,4 @@ await build({
 
 fs.copyFileSync(resolve(root, 'src/manifest.json'), resolve(dist, 'manifest.json'));
 fs.cpSync(resolve(root, 'public/icons'), resolve(dist, 'icons'), { recursive: true });
-console.log('Built QueueTube into dist/');
+console.log('Built Cue into dist/');

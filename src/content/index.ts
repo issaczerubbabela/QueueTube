@@ -3,10 +3,14 @@
 import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import browser from 'webextension-polyfill';
-import { parseVideoId } from '../domain/youtube';
+import { fetchPlaylist, parseVideoId } from '../domain/youtube';
 import type { RoleQuery, TabMessage } from '../shared/messages';
 import { send } from '../shared/messages';
 import { Sidebar } from '../sidebar/Sidebar';
+import { listenForAltClicks } from './altClick';
+import { showPlaylistButton } from './playlistButton';
+import { cancelAutoplay, pauseAtStopPoint } from './stopPoint';
+import { reportWatchProgress } from './watchProgress';
 import sidebarCss from '../sidebar/sidebar.css?inline';
 
 const HOST_ID = 'queuetube-host';
@@ -58,6 +62,14 @@ function mount() {
   // Page styles outrank :host rules, so spacing against YouTube's list is set inline.
   host.style.marginBottom = '16px';
   const shadow = host.attachShadow({ mode: 'open' });
+  // Keys typed into the panel's text fields must not reach YouTube's shortcuts (k pauses, f goes
+  // full screen…): past the shadow root they look like keys pressed on the page. React has
+  // handled them by the time they get here.
+  for (const type of ['keydown', 'keypress', 'keyup']) {
+    shadow.addEventListener(type, (event) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) event.stopPropagation();
+    });
+  }
   const style = document.createElement('style');
   style.textContent = sidebarCss;
   const mountPoint = document.createElement('div');
@@ -98,8 +110,10 @@ const adShowing = () => document.querySelector('#movie_player.ad-showing') !== n
 document.addEventListener(
   'ended',
   (event) => {
-    if (!isPlayer || !playerVideo(event.target) || adShowing()) return;
-    send({ type: 'player/ended', videoId: parseVideoId(location.href) }).catch(() => {});
+    const video = playerVideo(event.target);
+    if (!isPlayer || !video || adShowing()) return;
+    const durationSec = Number.isFinite(video.duration) ? Math.round(video.duration) : null;
+    send({ type: 'player/ended', videoId: parseVideoId(location.href), durationSec }).catch(() => {});
   },
   true
 );
@@ -121,6 +135,14 @@ document.addEventListener(
 
 window.addEventListener('yt-navigate-finish', schedulePlacement);
 
+reportWatchProgress(() => isPlayer);
+pauseAtStopPoint(() => isPlayer);
+
+// Every YouTube tab, not just the player: Alt+click a video link to queue it, and queue a
+// playlist from its page.
+listenForAltClicks(HOST_ID);
+showPlaylistButton(HOST_ID);
+
 // ── Wiring ──────────────────────────────────────────────────────────────────
 
 browser.runtime.onMessage.addListener((message: unknown) => {
@@ -128,6 +150,11 @@ browser.runtime.onMessage.addListener((message: unknown) => {
   if (msg?.type === 'ping') return Promise.resolve(true);
   if (msg?.type === 'role') {
     setRole(msg.isPlayer);
+    return Promise.resolve(true);
+  }
+  if (msg?.type === 'playlist/read') return fetchPlaylist(msg.listId);
+  if (msg?.type === 'stopped') {
+    if (isPlayer) cancelAutoplay();
     return Promise.resolve(true);
   }
   return undefined;

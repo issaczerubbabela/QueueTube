@@ -2,44 +2,67 @@ import React, { useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
+  CircleHelp,
   EllipsisVertical,
   Layers,
   ListPlus,
   ListVideo,
   Settings as SettingsIcon,
   SkipBack,
+  Sparkles,
   SkipForward,
   Trash2,
   Upload,
   Download,
+  ListChecks,
+  ArrowDownNarrowWide,
+  ArrowDownWideNarrow,
+  Users,
+  Shuffle,
+  ListVideo as PlaylistIcon,
+  Share2,
 } from 'lucide-react';
+import browser from 'webextension-polyfill';
+import { whatsNewVersion } from '../domain/changelog';
 import * as Q from '../domain/queue';
-import { playlistUrl } from '../domain/youtube';
+import { parsePlaylistId, playlistUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
-import { useExtensionState } from '../shared/state';
-import { Menu, Title, Toast, useMenu, useToast } from '../ui/components';
+import { useExtensionState, useWatchedVideos } from '../shared/state';
+import { EMPTY_QUEUE_HINT, Menu, TimeLeft, Title, Toast, useMenu, useToast } from '../ui/components';
+import { queuePlaylist } from '../ui/playlist';
 import { tintStyle, useTint } from '../ui/tint';
-import { exportQueue, formatRemaining, importQueue, pluralVideos } from '../ui/transfer';
+import { copyShareLink, dropVideos, exportQueue, importQueue, mayHoldLinks, pluralVideos } from '../ui/transfer';
 import { HistoryList } from './HistoryList';
-import { QueueList } from './QueueList';
+import { ENTRY_DRAG_TYPE, QueueList } from './QueueList';
+import { SHELF_DRAG_TYPE, ShelfList } from './ShelfList';
 
-type Tab = 'queue' | 'history';
+type Tab = 'queue' | 'shelf' | 'history';
 
 export function Sidebar() {
-  const { ready, queue, settings } = useExtensionState();
+  const { ready, queue, settings, lastSeenVersion, shelf } = useExtensionState();
   const [tab, setTab] = useState<Tab>('queue');
+  /** The tab a queue row or shelved video is being dragged over, to move it there. */
+  const [dropTab, setDropTab] = useState<Tab | null>(null);
+  const [dropping, setDropping] = useState(false);
   const menu = useMenu();
   const { toast, show, dismiss } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const tint = useTint(ready ? Q.currentEntry(queue)?.videoId : null);
+  const watched = useWatchedVideos();
 
   if (!ready) return null;
 
   const index = Q.currentIndex(queue);
-  const next = Q.nextEntry(queue);
+  const next = Q.nextEntry(queue, Q.skipped(settings, watched));
+  const watchedCount = queue.entries.filter((e) => watched.has(e.videoId)).length;
+  const canRearrange = Q.upcoming(queue).length > 1;
+  const rearrange = async (command: Parameters<typeof send>[0], message: string) => {
+    await send(command);
+    withUndo(message);
+  };
   const total = queue.entries.length;
-  const remaining = formatRemaining(Q.remainingSeconds(queue));
   const position = total === 0 ? 'Nothing queued' : index >= 0 ? `${index + 1} / ${total}` : pluralVideos(total);
+  const whatsNew = whatsNewVersion(lastSeenVersion, browser.runtime.getManifest().version);
 
   const setCollapsed = (sidebarCollapsed: boolean) => send({ type: 'settings/update', patch: { sidebarCollapsed } });
 
@@ -52,20 +75,19 @@ export function Sidebar() {
   };
 
   const collapsed = settings.sidebarCollapsed;
-  const subtitle = collapsed
-    ? next
-      ? null
-      : position
-    : [position, remaining].filter(Boolean).join(' · ');
+  const subtitle = collapsed && next ? null : position;
 
   return (
-    <section className={`panel${collapsed ? ' collapsed' : ''}`} aria-label="QueueTube queue" style={tintStyle(tint)}>
+    <section className={`panel${collapsed ? ' collapsed' : ''}`} aria-label="Cue queue panel" style={tintStyle(tint)}>
       <header className="panel-header">
         <div className="header-top">
           <div className="heading">
             <h2>Global Queue</h2>
             {subtitle !== null ? (
-              <p className="subtitle">{subtitle}</p>
+              <p className="subtitle">
+                {subtitle}
+                {!collapsed && <TimeLeft queue={queue} lead=" · " />}
+              </p>
             ) : (
               <p className="subtitle">
                 Next: <Title video={next!} className="next-title" />
@@ -85,12 +107,38 @@ export function Sidebar() {
         {!collapsed && (
           <div className="header-actions">
             <div className="chips" role="tablist" aria-label="Queue view">
-              <button className="chip" role="tab" aria-selected={tab === 'queue'} onClick={() => setTab('queue')}>
-                Queue
-              </button>
-              <button className="chip" role="tab" aria-selected={tab === 'history'} onClick={() => setTab('history')}>
-                History
-              </button>
+              {(
+                [
+                  // Drag a queue row onto Shelf to shelve it, or a shelved video onto Queue to bring it back.
+                  { id: 'queue', label: 'Queue', accepts: SHELF_DRAG_TYPE, onDrop: (videoId: string) => send({ type: 'shelf/restore', videoId }) },
+                  { id: 'shelf', label: shelf.length ? `Shelf ${shelf.length}` : 'Shelf', accepts: ENTRY_DRAG_TYPE, onDrop: (entryId: string) => send({ type: 'shelf/add', entryId }) },
+                  { id: 'history', label: 'History' },
+                ] as { id: Tab; label: string; accepts?: string; onDrop?: (id: string) => void }[]
+              ).map(({ id, label, accepts, onDrop }) => (
+                <button
+                  key={id}
+                  className={`chip${dropTab === id ? ' drop-target' : ''}`}
+                  role="tab"
+                  aria-selected={tab === id}
+                  onClick={() => setTab(id)}
+                  onDragOver={(e) => {
+                    if (!accepts || !e.dataTransfer.types.includes(accepts)) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setDropTab(id);
+                  }}
+                  onDragLeave={() => setDropTab(null)}
+                  onDrop={(e) => {
+                    setDropTab(null);
+                    const dragged = accepts ? e.dataTransfer.getData(accepts) : '';
+                    if (!dragged || !onDrop) return;
+                    e.preventDefault();
+                    onDrop(dragged);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
             <span className="spacer" />
             <button
@@ -112,9 +160,9 @@ export function Sidebar() {
               <SkipForward />
             </button>
             <button
-              className="icon-btn"
+              className={`icon-btn${whatsNew ? ' has-dot' : ''}`}
               onClick={menu.toggle}
-              aria-label="Queue options"
+              aria-label={whatsNew ? `Queue options (what's new in ${whatsNew})` : 'Queue options'}
               aria-haspopup="menu"
               aria-expanded={menu.anchor !== null}
             >
@@ -128,10 +176,26 @@ export function Sidebar() {
       <div className="panel-body" role="tabpanel">
         {tab === 'queue' ? (
           total === 0 ? (
-            <div className="empty">
+            <div
+              className={`empty${dropping ? ' drop-target' : ''}`}
+              onDragOver={(e) => {
+                if (!mayHoldLinks(e.dataTransfer)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                setDropping(true);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropping(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDropping(false);
+                dropVideos(e.dataTransfer, 'end').then((message) => message && show({ message }));
+              }}
+            >
               <ListVideo className="empty-icon" aria-hidden="true" />
               <p className="empty-title">Nothing queued yet</p>
-              <p className="empty-text">Open videos in new tabs and they'll line up here, or pull in the YouTube tabs you already have open.</p>
+              <p className="empty-text">{EMPTY_QUEUE_HINT}</p>
               <button className="btn" onClick={gather}>
                 <Layers aria-hidden="true" /> Gather open tabs
               </button>
@@ -140,8 +204,11 @@ export function Sidebar() {
             <QueueList
               queue={queue}
               onRemoved={(entry) => withUndo(`Removed “${entry.title || 'video'}”`)}
+              onDropMessage={(message) => show({ message })}
             />
           )
+        ) : tab === 'shelf' ? (
+          <ShelfList shelf={shelf} />
         ) : (
           <HistoryList queue={queue} />
         )}
@@ -168,9 +235,38 @@ export function Sidebar() {
           label="Queue options"
           onClose={menu.close}
           items={[
+            ...(whatsNew
+              ? [
+                  {
+                    label: `What's new in ${whatsNew}`,
+                    icon: <Sparkles />,
+                    accent: true,
+                    onSelect: () => send({ type: 'options/open', section: 'whats-new' }),
+                  },
+                  'separator' as const,
+                ]
+              : []),
+            ...(parsePlaylistId(location.href)
+              ? [
+                  {
+                    label: 'Queue this playlist',
+                    icon: <PlaylistIcon />,
+                    onSelect: async () => {
+                      show({ message: 'Reading the playlist…' });
+                      show({ message: await queuePlaylist(parsePlaylistId(location.href)!) });
+                    },
+                  },
+                ]
+              : []),
             { label: 'Gather open tabs', icon: <Layers />, onSelect: gather },
             { label: 'Import from file…', icon: <Upload />, onSelect: () => fileInput.current?.click() },
             { label: 'Export to file', icon: <Download />, disabled: total === 0, onSelect: () => exportQueue(queue.entries) },
+            {
+              label: 'Copy share link',
+              icon: <Share2 />,
+              disabled: Q.upcoming(queue).length === 0 && !Q.currentEntry(queue),
+              onSelect: async () => show({ message: await copyShareLink(queue) }),
+            },
             {
               label: 'Open as YouTube playlist',
               icon: <ListPlus />,
@@ -178,6 +274,41 @@ export function Sidebar() {
               onSelect: () => send({ type: 'tabs/openFree', url: playlistUrl(queue.entries.map((e) => e.videoId)) }),
             },
             'separator',
+            { heading: "Rearrange what's next" },
+            {
+              label: 'Shortest first',
+              icon: <ArrowDownNarrowWide />,
+              disabled: !canRearrange,
+              onSelect: () => rearrange({ type: 'queue/sort', order: 'shortest' }, 'Sorted shortest first'),
+            },
+            {
+              label: 'Longest first',
+              icon: <ArrowDownWideNarrow />,
+              disabled: !canRearrange,
+              onSelect: () => rearrange({ type: 'queue/sort', order: 'longest' }, 'Sorted longest first'),
+            },
+            {
+              label: 'By channel',
+              icon: <Users />,
+              disabled: !canRearrange,
+              onSelect: () => rearrange({ type: 'queue/sort', order: 'channel' }, 'Sorted by channel'),
+            },
+            {
+              label: 'Shuffle',
+              icon: <Shuffle />,
+              disabled: !canRearrange,
+              onSelect: () => rearrange({ type: 'queue/shuffle' }, 'Shuffled'),
+            },
+            'separator',
+            {
+              label: 'Clear watched',
+              icon: <ListChecks />,
+              disabled: watchedCount === 0,
+              onSelect: async () => {
+                await send({ type: 'queue/clearWatched' });
+                withUndo(`Cleared ${pluralVideos(watchedCount)} you've watched`);
+              },
+            },
             {
               label: 'Clear queue',
               icon: <Trash2 />,
@@ -189,6 +320,7 @@ export function Sidebar() {
               },
             },
             'separator',
+            { label: 'Guide', icon: <CircleHelp />, onSelect: () => send({ type: 'options/open', section: 'guide' }) },
             { label: 'Settings', icon: <SettingsIcon />, onSelect: () => send({ type: 'options/open' }) },
           ]}
         />

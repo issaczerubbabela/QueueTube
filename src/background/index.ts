@@ -1,20 +1,28 @@
 // Background worker: routes tab events and UI commands into the queue model.
 import browser from 'webextension-polyfill';
+import * as P from '../domain/progress';
 import * as Q from '../domain/queue';
-import { fetchDuration, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, watchUrl } from '../domain/youtube';
-import type { Command, RoleQuery, Status } from '../shared/messages';
-import { currentPlayer, electPlayer, focusPlayer, focusTab, loadVideo, setPlayer } from './player';
+import * as Sh from '../domain/shelf';
+import { FetchedPlaylist, fetchDuration, fetchPlaylist, fetchVideoInfo, isNewTabPage, isYouTubeSite, parseVideoId, parseVideoLink, startTimes } from '../domain/youtube';
+import { Command, OptionsSection, PLAYLIST_CONFIRM_ABOVE, PlaylistReply, RoleQuery, Status, TabMessage } from '../shared/messages';
+import { createMenus, onMenuClick } from './menus';
+import { askYouTubeTab, currentPlayer, electPlayer, focusPlayer, focusTab, loadVideo, setPlayer } from './player';
 import {
   TabBook,
   forgetTab,
   loadBook,
+  loadProgress,
   loadQueue,
   loadSettings,
+  loadShelf,
   loadUndo,
   migrateLegacyState,
   saveBook,
+  saveLastSeenVersion,
+  saveProgress,
   saveQueue,
   saveSettings,
+  saveShelf,
   saveUndo,
   serial,
 } from './store';
@@ -24,15 +32,50 @@ const STARTUP_GRACE_MS = 8000;
 
 const blankVideo = (videoId: string): Q.Video => ({ videoId, title: '', channel: '', durationSec: null });
 
+/** Loads a video in the player tab, resuming from its Watch progress. */
+async function play(videoId: string): Promise<void> {
+  await loadVideo(await loadBook(), videoId, P.resumeAt(await loadProgress(), videoId));
+}
+
 /**
- * Applies a queue operation and loads whatever video it asks for. Call only inside `serial`.
+ * Applies a queue operation and loads whatever video it asks for. The operation also gets the
+ * Watched videos. Call only inside `serial`.
  */
-async function apply(op: (queue: Q.Queue, settings: Q.Settings) => Q.Step | Q.Queue): Promise<void> {
-  const [queue, settings] = await Promise.all([loadQueue(), loadSettings()]);
-  const result = op(queue, settings);
+async function apply(op: (queue: Q.Queue, settings: Q.Settings, watched: ReadonlySet<string>) => Q.Step | Q.Queue): Promise<void> {
+  const [queue, settings, progress] = await Promise.all([loadQueue(), loadSettings(), loadProgress()]);
+  const result = op(queue, settings, P.watchedVideos(progress));
   const step: Q.Step = 'play' in result ? result : { queue: result, play: null };
-  if (step.queue !== queue) await saveQueue(step.queue);
-  if (step.play) await loadVideo(await loadBook(), step.play);
+  if (step.queue !== queue) {
+    await saveQueue(step.queue);
+    // A video is in the Queue or on the Shelf, never both: queueing it by any route unshelves it.
+    const shelf = await loadShelf();
+    const unshelved = Sh.withoutQueued(shelf, step.queue);
+    if (unshelved !== shelf) await saveShelf(unshelved);
+  }
+  if (step.play) await play(step.play);
+}
+
+/** Applies a change to the Queue and the Shelf together. Call only inside `serial`. */
+async function applyWithShelf(op: (queue: Q.Queue, shelf: Sh.Shelf, settings: Q.Settings) => { queue: Q.Queue; shelf: Sh.Shelf }): Promise<void> {
+  const [queue, shelf, settings] = await Promise.all([loadQueue(), loadShelf(), loadSettings()]);
+  const next = op(queue, shelf, settings);
+  if (next.shelf !== shelf) await saveShelf(next.shelf);
+  if (next.queue !== queue) await saveQueue(next.queue);
+}
+
+/** Fills in a video's details wherever it shows: Queue, History and Shelf. Call only inside `serial`. */
+async function describeVideo(videoId: string, details: Partial<Q.Video>): Promise<void> {
+  await apply((q) => Q.describe(q, videoId, details));
+  const shelf = await loadShelf();
+  const described = Sh.describeShelved(shelf, videoId, details);
+  if (described !== shelf) await saveShelf(described);
+}
+
+/** Applies a Watch progress change. Call only inside `serial`. */
+async function applyProgress(op: (progress: P.ProgressMap) => P.ProgressMap): Promise<void> {
+  const progress = await loadProgress();
+  const next = op(progress);
+  if (next !== progress) await saveProgress(next);
 }
 
 /**
@@ -42,7 +85,7 @@ async function apply(op: (queue: Q.Queue, settings: Q.Settings) => Q.Step | Q.Qu
 function describeLater(videoIds: string[]): void {
   for (const videoId of videoIds) {
     fetchVideoInfo(videoId).then((info) => {
-      if (info) serial(() => apply((q) => Q.describe(q, videoId, info)));
+      if (info) serial(() => describeVideo(videoId, info));
     });
   }
   const pending = [...videoIds];
@@ -52,15 +95,83 @@ function describeLater(videoIds: string[]): void {
       const known = (await loadQueue()).entries.find((e) => e.videoId === videoId)?.durationSec;
       if (known) continue;
       const durationSec = await fetchDuration(videoId);
-      if (durationSec) await serial(() => apply((q) => Q.describe(q, videoId!, { durationSec })));
+      if (durationSec) await serial(() => describeVideo(videoId!, { durationSec }));
     }
   };
   for (let i = 0; i < 3; i++) worker();
 }
 
-async function snapshotForUndo(): Promise<void> {
-  const { entries, currentId } = await loadQueue();
-  if (entries.length > 0) await saveUndo({ entries, currentId });
+/**
+ * Adds videos to the queue (end, Play next or an index) and fetches their details. Start times
+ * from their links (`t=`) replace saved Watch progress, whether or not the video was added.
+ */
+async function add(videoIds: string[], at: Q.Position = 'end', starts?: Record<string, number>): Promise<{ added: number }> {
+  await applyProgress((p) => P.setStarts(p, starts));
+  return addVideos(videoIds.map(blankVideo), at);
+}
+
+/** Adds videos whose details may already be known; only the missing ones are fetched. */
+async function addVideos(videos: Q.Video[], at: Q.Position = 'end'): Promise<{ added: number }> {
+  const before = (await loadQueue()).entries.length;
+  await apply((q, s) => Q.enqueue(q, videos, s, at));
+  describeLater([...new Set(videos.filter((v) => !v.title || !v.durationSec).map((v) => v.videoId))]);
+  return { added: (await loadQueue()).entries.length - before };
+}
+
+// ── Playlists ────────────────────────────────────────────────────────────────
+
+/** The last playlist read, so confirming a long one doesn't read it again. */
+let lastPlaylist: { listId: string; at: number; playlist: FetchedPlaylist } | null = null;
+
+async function readPlaylist(listId: string): Promise<FetchedPlaylist | null> {
+  if (lastPlaylist?.listId === listId && Date.now() - lastPlaylist.at < 120_000) return lastPlaylist.playlist;
+  // YouTube answers the requests for a playlist's later pages with 403 when they come from the
+  // extension, so a YouTube tab reads it when there is one; otherwise only what we can get.
+  const playlist = (await askYouTubeTab<FetchedPlaylist | null>(await loadBook(), { type: 'playlist/read', listId })) ?? (await fetchPlaylist(listId));
+  if (playlist) lastPlaylist = { listId, at: Date.now(), playlist };
+  return playlist;
+}
+
+/**
+ * Queues a playlist at the end, in order. Long ones need `confirmed`. Reading the playlist
+ * happens outside `serial`, so the queue stays responsive meanwhile.
+ */
+async function queuePlaylist(listId: string, confirmed = false): Promise<PlaylistReply> {
+  const playlist = await readPlaylist(listId);
+  if (!playlist) return { status: 'failed' };
+  const total = playlist.videos.length;
+  if (total > PLAYLIST_CONFIRM_ABOVE && !confirmed) return { status: 'confirm', total };
+  const { added } = await serial(() => addVideos(playlist.videos));
+  return { status: 'queued', added, total, complete: playlist.complete };
+}
+
+/** Asks "Queue all 742 videos?" in the tab a right-click came from. False if it can't ask there. */
+async function confirmInTab(tabId: number | undefined, frameId: number | undefined, total: number): Promise<boolean> {
+  if (tabId === undefined) return false;
+  try {
+    const [frame] = await browser.scripting.executeScript({
+      target: { tabId, frameIds: [frameId ?? 0] },
+      func: (n: number) => confirm(`Queue all ${n} videos?`),
+      args: [total],
+    });
+    return frame?.result === true;
+  } catch {
+    return false;
+  }
+}
+
+async function queuePlaylistFromMenu(listId: string, tabId?: number, frameId?: number): Promise<void> {
+  const reply = await queuePlaylist(listId);
+  if (reply.status === 'confirm' && (await confirmInTab(tabId, frameId, reply.total))) await queuePlaylist(listId, true);
+}
+
+/** Applies an operation that removes or rearranges entries, keeping what Undo needs to put them back. */
+async function undoable(op: Parameters<typeof apply>[0]): Promise<void> {
+  const { entries, currentId, stopAfterId } = await loadQueue();
+  await apply(op);
+  const after = await loadQueue();
+  const changed = after.entries.length !== entries.length || after.entries.some((e, i) => e.id !== entries[i].id);
+  if (entries.length > 0 && changed) await saveUndo({ entries, currentId, stopAfterId, currentAfter: after.currentId });
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
@@ -85,6 +196,8 @@ async function autoQueue(book: TabBook, tab: browser.Tabs.Tab, videoId: string):
   const settings = await loadSettings();
   if (!settings.autoQueue) return;
 
+  const start = parseVideoLink(tab.url)?.start;
+  if (start) await applyProgress((p) => P.setStart(p, videoId, start));
   await apply((q, s) => Q.enqueue(q, [blankVideo(videoId)], s));
   await browser.tabs.remove(tabId).catch(() => {});
   // Only pull the user to the player if they opened the video in the foreground.
@@ -171,7 +284,9 @@ async function gather(): Promise<{ gathered: number }> {
     await becomePlayer(book, playerId, player.url);
   }
 
-  const videoIds = candidates.map((t) => parseVideoId(t.url)!);
+  const links = candidates.map((t) => parseVideoLink(t.url)!);
+  const videoIds = links.map((l) => l.videoId);
+  await applyProgress((p) => P.setStarts(p, startTimes(links)));
   await apply((q, s) => Q.enqueue(q, videoIds.map(blankVideo), s));
   await browser.tabs.remove(candidates.map((t) => t.id!)).catch(() => {});
   await focusTab(playerId).catch(() => {});
@@ -187,6 +302,20 @@ async function status(): Promise<Status> {
   return { playerTabId, claimableTabId: claimable ? active.id! : null, canUndo: (await loadUndo()) !== null };
 }
 
+/** Opens the settings page, scrolled to a section when one is given. Reuses an open settings tab. */
+async function openOptions(section?: OptionsSection): Promise<void> {
+  if (!section) return browser.runtime.openOptionsPage();
+  const page = browser.runtime.getURL('src/options/index.html');
+  const url = `${page}#${section}`;
+  const existing = (await browser.tabs.query({})).find((t) => t.url?.startsWith(page));
+  if (existing?.id === undefined) {
+    await browser.tabs.create({ url });
+    return;
+  }
+  await browser.tabs.update(existing.id, { url });
+  await focusTab(existing.id).catch(() => {});
+}
+
 async function handle(command: Command | RoleQuery, sender: browser.Runtime.MessageSender): Promise<unknown> {
   switch (command.type) {
     case 'tab/role': {
@@ -198,19 +327,14 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     case 'tabs/gather':
       return gather();
 
-    case 'queue/add': {
-      const before = (await loadQueue()).entries.length;
-      await apply((q, s) => Q.enqueue(q, command.videoIds.map(blankVideo), s));
-      describeLater(command.videoIds);
-      return { added: (await loadQueue()).entries.length - before };
-    }
+    case 'queue/add':
+      return add(command.videoIds, command.at, command.starts);
     case 'queue/remove':
-      if (!(await loadQueue()).entries.some((e) => e.id === command.entryId)) return;
-      await snapshotForUndo();
-      return apply((q) => Q.remove(q, command.entryId));
+      return undoable((q) => Q.remove(q, command.entryId));
     case 'queue/clear':
-      await snapshotForUndo();
-      return apply((q) => Q.clear(q));
+      return undoable((q) => Q.clear(q));
+    case 'queue/clearWatched':
+      return undoable((q, _s, watched) => Q.clearWatched(q, watched));
     case 'queue/undo': {
       const snapshot = await loadUndo();
       if (!snapshot) return;
@@ -219,30 +343,62 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     }
     case 'queue/move':
       return apply((q) => Q.move(q, command.entryId, command.toIndex));
+    case 'queue/sort':
+      return undoable((q) => Q.sortUpcoming(q, command.order));
+    case 'queue/shuffle':
+      return undoable((q) => Q.shuffleUpcoming(q));
+    case 'queue/stopPoint':
+      return apply((q) => Q.setStopPoint(q, command.entryId));
     case 'queue/playNextInLine':
       return apply((q) => Q.playNextInLine(q, command.entryId));
+    case 'shelf/add':
+      return applyWithShelf((q, shelf) => Sh.moveToShelf(q, shelf, command.entryId));
+    case 'shelf/restore':
+      return applyWithShelf((q, shelf, s) => Sh.backToQueue(q, shelf, command.videoId, s, command.at ?? 'end'));
+    case 'shelf/move': {
+      const shelf = await loadShelf();
+      return saveShelf(Sh.moveOnShelf(shelf, command.videoId, command.toIndex));
+    }
+    case 'shelf/remove': {
+      const shelf = await loadShelf();
+      return saveShelf(Sh.removeFromShelf(shelf, command.videoId));
+    }
     case 'history/clear':
       return apply((q) => Q.clearHistory(q));
 
     case 'play/entry':
       return apply((q) => Q.jumpTo(q, command.entryId));
     case 'play/video':
-      return loadVideo(await loadBook(), command.videoId);
+      return play(command.videoId);
     case 'play/next':
-      return apply((q, s) => Q.advance(q, s));
+      return apply((q, s, watched) => Q.advance(q, s, Q.systemClock, watched));
     case 'play/previous':
       return apply((q, s) => Q.goBack(q, s));
 
     case 'player/ended': {
       const book = await loadBook();
       if (sender.tab?.id !== book.playerTabId) return;
-      const settings = await loadSettings();
-      if (!settings.autoAdvance) return;
-      return apply((q, s) => (q.nowPlaying === command.videoId ? Q.advance(q, s) : q));
+      if (command.videoId) await applyProgress((p) => P.markWatched(p, command.videoId!, command.durationSec ?? null));
+      let stopped = false;
+      await apply((q, s, watched) => {
+        if (q.nowPlaying !== command.videoId) return q;
+        const step = Q.videoEnded(q, s, Q.systemClock, watched);
+        stopped = step.stopped;
+        return step;
+      });
+      // At the Stop point: keep YouTube's own autoplay from taking over.
+      if (stopped) await browser.tabs.sendMessage(book.playerTabId, { type: 'stopped' } satisfies TabMessage).catch(() => {});
+      return;
+    }
+    case 'player/progress': {
+      const book = await loadBook();
+      if (sender.tab?.id !== book.playerTabId) return;
+      const { videoId, positionSec, durationSec } = command;
+      return applyProgress((p) => P.recordPosition(p, videoId, positionSec, durationSec));
     }
     case 'player/describe': {
       const { videoId, title, channel, durationSec } = command;
-      return apply((q) => Q.describe(q, videoId, { title, channel, durationSec }));
+      return describeVideo(videoId, { title, channel, durationSec });
     }
     case 'player/focus':
       return focusPlayer(await loadBook());
@@ -264,7 +420,9 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
     }
 
     case 'options/open':
-      return browser.runtime.openOptionsPage();
+      return openOptions(command.section);
+    case 'whatsNew/seen':
+      return saveLastSeenVersion(browser.runtime.getManifest().version);
     case 'settings/update': {
       const settings = await loadSettings();
       return saveSettings({ ...settings, ...command.patch });
@@ -275,13 +433,20 @@ async function handle(command: Command | RoleQuery, sender: browser.Runtime.Mess
 browser.runtime.onMessage.addListener((message: unknown, sender) => {
   const command = message as Command | RoleQuery;
   if (!command || typeof command.type !== 'string') return undefined;
+  // Reading a playlist takes a while; it takes its turn in `serial` only to add the videos.
+  if (command.type === 'playlist/queue') return queuePlaylist(command.listId, command.confirmed);
   return serial(() => handle(command, sender));
 });
+
+onMenuClick(
+  (videoIds, at, starts) => serial(() => add(videoIds, at, starts)),
+  (listId, tabId, frameId) => queuePlaylistFromMenu(listId, tabId, frameId)
+);
 
 browser.commands?.onCommand.addListener((name) => {
   serial(async () => {
     if (name === 'gather-tabs') await gather();
-    else if (name === 'next-video') await apply((q, s) => Q.advance(q, s));
+    else if (name === 'next-video') await apply((q, s, watched) => Q.advance(q, s, Q.systemClock, watched));
     else if (name === 'previous-video') await apply((q, s) => Q.goBack(q, s));
     else if (name === 'toggle-queue') {
       const settings = await loadSettings();
@@ -294,6 +459,7 @@ browser.commands?.onCommand.addListener((name) => {
 
 /** Once per browser launch or install: adopt an open YouTube tab and fill in missing details. */
 function onLaunch(isBrowserStart: boolean) {
+  createMenus().catch((err) => console.error('[Cue] Could not create the right-click menu', err));
   serial(async () => {
     await migrateLegacyState();
     const book = await loadBook();
@@ -307,10 +473,20 @@ function onLaunch(isBrowserStart: boolean) {
       const elected = await electPlayer(book);
       if (elected) await apply((q) => Q.playerShowing(q, elected.videoId));
     }
-    const queue = await loadQueue();
-    describeLater([...new Set([...queue.entries, ...queue.history].filter((v) => !v.title).map((v) => v.videoId))]);
+    const [queue, shelf] = await Promise.all([loadQueue(), loadShelf()]);
+    describeLater([...new Set([...queue.entries, ...queue.history, ...shelf].filter((v) => !v.title).map((v) => v.videoId))]);
   });
 }
 
 browser.runtime.onStartup.addListener(() => onLaunch(true));
-browser.runtime.onInstalled.addListener(() => onLaunch(false));
+browser.runtime.onInstalled.addListener(({ reason }) => {
+  onLaunch(false);
+  // A fresh install has nothing new to announce, and opens the Guide instead. An update leaves the
+  // last version seen alone, so the What's new notice shows (including from 1.1.1, which never stored one).
+  if (reason === 'install') {
+    serial(async () => {
+      await saveLastSeenVersion(browser.runtime.getManifest().version);
+      await openOptions('guide');
+    });
+  }
+});

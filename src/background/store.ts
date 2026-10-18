@@ -1,15 +1,17 @@
 // Persistence for the background worker, the only writer of queue state (ADR 0001).
 // Every read-modify-write runs inside `serial`, so tab events and commands never interleave.
 import browser from 'webextension-polyfill';
-import { DEFAULT_SETTINGS, Entry, Queue, Settings, upcoming } from '../domain/queue';
-import { KEYS, readQueue, readSettings } from '../shared/state';
+import type { ProgressMap } from '../domain/progress';
+import type { Shelf } from '../domain/shelf';
+import { DEFAULT_SETTINGS, Entry, Queue, Settings, UndoSnapshot, upcoming } from '../domain/queue';
+import { KEYS, readProgress, readQueue, readSettings, readShelf } from '../shared/state';
 
 let tail: Promise<unknown> = Promise.resolve();
 
 /** Runs jobs one at a time, in call order. A job must never await another `serial` job. */
 export function serial<T>(job: () => Promise<T>): Promise<T> {
   const run = tail.then(job, job);
-  tail = run.catch((err) => console.error('[QueueTube]', err));
+  tail = run.catch((err) => console.error('[Cue]', err));
   return run;
 }
 
@@ -33,15 +35,37 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await browser.storage.local.set({ [KEYS.settings]: settings });
 }
 
+export async function loadProgress(): Promise<ProgressMap> {
+  const stored = await browser.storage.local.get(KEYS.progress);
+  return readProgress(stored[KEYS.progress]);
+}
+
+export async function saveProgress(progress: ProgressMap): Promise<void> {
+  await browser.storage.local.set({ [KEYS.progress]: progress });
+}
+
+export async function loadShelf(): Promise<Shelf> {
+  const stored = await browser.storage.local.get(KEYS.shelf);
+  return readShelf(stored[KEYS.shelf]);
+}
+
+export async function saveShelf(shelf: Shelf): Promise<void> {
+  await browser.storage.local.set({ [KEYS.shelf]: shelf });
+}
+
+export async function saveLastSeenVersion(version: string): Promise<void> {
+  await browser.storage.local.set({ [KEYS.lastSeenVersion]: version });
+}
+
 // ── Session state: forgotten when the browser restarts, kept while the worker sleeps ──
 
 export interface TabBook {
   playerTabId: number | null;
-  /** Tabs opened while QueueTube was running that have not landed on a page yet. */
+  /** Tabs opened while Cue was running that have not landed on a page yet. */
   fresh: number[];
-  /** Tabs the user opened outside QueueTube on purpose; never auto-queued or gathered. */
+  /** Tabs the user opened outside Cue on purpose; never auto-queued or gathered. */
   free: number[];
-  /** When the browser started (0 if QueueTube was installed mid-session); tabs created right after are session restore. */
+  /** When the browser started (0 if Cue was installed mid-session); tabs created right after are session restore. */
   bootAt: number;
 }
 
@@ -65,8 +89,6 @@ export function forgetTab(book: TabBook, tabId: number): void {
 export async function saveBook(book: TabBook): Promise<void> {
   await browser.storage.session.set({ [BOOK_KEY]: book });
 }
-
-export type UndoSnapshot = Pick<Queue, 'entries' | 'currentId'>;
 
 export async function saveUndo(snapshot: UndoSnapshot | null): Promise<void> {
   if (snapshot) await browser.storage.session.set({ [KEYS.undo]: snapshot });
@@ -107,6 +129,7 @@ export async function migrateLegacyState(): Promise<void> {
     entries,
     currentId: entries.find((e) => e.videoId === legacy.currentVideoId)?.id ?? null,
     nowPlaying: null,
+    stopAfterId: null,
     history: (legacy.history ?? []).map((item) => ({
       videoId: item.videoId,
       title: cleanTitle(item.title),

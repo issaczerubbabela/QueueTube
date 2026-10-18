@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import browser from 'webextension-polyfill';
+import { whatsNewVersion } from '../domain/changelog';
 import type { Settings } from '../domain/queue';
 import { send } from '../shared/messages';
 import { useExtensionState } from '../shared/state';
-import { exportQueue, importQueue, pluralVideos } from '../ui/transfer';
-
-type BooleanSetting = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
+import { formatShortcut } from '../ui/shortcut';
+import { copyShareLink, exportQueue, importQueue, importText, pluralVideos } from '../ui/transfer';
+import { Guide } from './Guide';
+import type { BooleanSetting, SettingAnchor } from './guideEntries';
+import { WhatsNew } from './WhatsNew';
 
 const QUEUE_SETTINGS: { key: BooleanSetting; title: string; detail: string }[] = [
   {
@@ -32,6 +35,11 @@ const PLAYBACK_SETTINGS: { key: BooleanSetting; title: string; detail: string }[
     detail: 'When a queued video ends, the next one starts in the player tab.',
   },
   {
+    key: 'skipWatched',
+    title: 'Skip watched videos',
+    detail: "When the queue moves on, pass over videos you've already watched (played to the end, or 90% of the way). They stay in the queue; Clear watched in the panel's ⋮ menu removes them.",
+  },
+  {
     key: 'removeAfterPlaying',
     title: 'Remove videos after playing',
     detail: 'Videos leave the queue once you move past them. They stay in History.',
@@ -39,7 +47,7 @@ const PLAYBACK_SETTINGS: { key: BooleanSetting; title: string; detail: string }[
   {
     key: 'lookUpDurations',
     title: 'Show video lengths',
-    detail: "YouTube's title lookup doesn't include length, so QueueTube reads part of each queued video's page (about 0.75 MB, without your cookies). Lengths also fill in as you watch.",
+    detail: "YouTube's title lookup doesn't include length, so Cue reads part of each queued video's page (about 0.75 MB, without your cookies). Lengths also fill in as you watch.",
   },
 ];
 
@@ -50,18 +58,30 @@ const COMMAND_LABELS: Record<string, string> = {
   'toggle-queue': 'Collapse or expand the panel',
 };
 
+/** What the Guide calls each row it links to. */
+const SETTING_TITLES: Record<SettingAnchor, string> = {
+  ...(Object.fromEntries([...QUEUE_SETTINGS, ...PLAYBACK_SETTINGS].map((s) => [s.key, s.title])) as Record<SettingAnchor, string>),
+  export: 'Export queue',
+  import: 'Import from file',
+  share: 'Copy share link',
+  paste: 'Paste links',
+  history: 'Clear history',
+};
+
 const SECTIONS = [
+  { id: 'guide', label: 'Guide' },
   { id: 'queueing', label: 'Queueing' },
   { id: 'playback', label: 'Playback' },
   { id: 'shortcuts', label: 'Keyboard shortcuts' },
   { id: 'queue', label: 'Your queue' },
+  { id: 'whats-new', label: "What's new" },
 ];
 
 function SettingRows({ rows, settings }: { rows: typeof QUEUE_SETTINGS; settings: Settings }) {
   return (
     <>
       {rows.map(({ key, title, detail }) => (
-        <div key={key} className="setting">
+        <div key={key} id={`setting-${key}`} className="setting">
           <span className="setting-label" id={`label-${key}`}>
             {title}
           </span>
@@ -84,15 +104,27 @@ function SettingRows({ rows, settings }: { rows: typeof QUEUE_SETTINGS; settings
 
 /** Laid out like YouTube's own settings pages: a left nav, a headline, then titled sections of label/control rows. */
 export function Options() {
-  const { ready, queue, settings } = useExtensionState();
+  const { ready, queue, settings, lastSeenVersion } = useExtensionState();
   const [commands, setCommands] = useState<browser.Commands.Command[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [active, setActive] = useState(SECTIONS[0].id);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [pasted, setPasted] = useState('');
   const isFirefox = navigator.userAgent.includes('Firefox');
+  const version = browser.runtime.getManifest().version;
+  const unseen = whatsNewVersion(lastSeenVersion, version) !== null;
 
+  // Shortcuts are changed in the browser's own settings, so read them again on coming back.
   useEffect(() => {
-    browser.commands?.getAll().then(setCommands).catch(() => {});
+    const refresh = () => browser.commands?.getAll().then(setCommands).catch(() => {});
+    const onVisible = () => document.visibilityState === 'visible' && refresh();
+    refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   // Highlight the nav entry for the section nearest the top of the viewport.
@@ -112,6 +144,22 @@ export function Options() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [ready]);
 
+  // The page renders after state loads, too late for the browser's own jump to a #section.
+  useEffect(() => {
+    if (ready) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  }, [ready]);
+
+  // Reading the changelog clears the What's new notice in the popup and panel.
+  useEffect(() => {
+    const section = ready && unseen ? document.getElementById('whats-new') : null;
+    if (!section) return;
+    const observer = new IntersectionObserver((seen) => {
+      if (seen.some((e) => e.isIntersecting)) send({ type: 'whatsNew/seen' });
+    });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [ready, unseen]);
+
   if (!ready) return null;
 
   const openShortcutSettings = () =>
@@ -123,8 +171,8 @@ export function Options() {
     <>
       <header className="masthead">
         <img src="/icons/icon48.png" alt="" className="logo" />
-        <span className="wordmark">QueueTube</span>
-        <span className="version">{browser.runtime.getManifest().version}</span>
+        <span className="wordmark">Cue</span>
+        <span className="version">{version}</span>
       </header>
 
       <div className="layout">
@@ -138,8 +186,16 @@ export function Options() {
         </nav>
 
         <main className="page">
-          <p className="eyebrow">QueueTube</p>
-          <h1>Choose how your queue works</h1>
+          <p className="eyebrow">Cue</p>
+          <h1>Make Cue work your way</h1>
+
+          <section id="guide">
+            <h2>Guide</h2>
+            <p className="section-sub">
+              What Cue can do and how to use it. For recent changes, see <a href="#whats-new">What's new</a>.
+            </p>
+            <Guide commands={commands} settingTitles={SETTING_TITLES} />
+          </section>
 
           <section id="queueing">
             <h2>Queueing</h2>
@@ -161,7 +217,7 @@ export function Options() {
               .map((c) => (
                 <div key={c.name} className="setting">
                   <span className="setting-label">{COMMAND_LABELS[c.name!]}</span>
-                  <span className="setting-control">{c.shortcut ? <kbd>{c.shortcut}</kbd> : <span className="muted">Not set</span>}</span>
+                  <span className="setting-control">{c.shortcut ? <kbd>{formatShortcut(c.shortcut)}</kbd> : <span className="muted">Not set</span>}</span>
                 </div>
               ))}
             <div className="setting">
@@ -176,8 +232,8 @@ export function Options() {
 
           <section id="queue">
             <h2>Your queue</h2>
-            <p className="section-sub">Move your queue in and out of QueueTube as a text file of links</p>
-            <div className="setting">
+            <p className="section-sub">Move your queue in and out of Cue as a text file of links</p>
+            <div id="setting-export" className="setting">
               <span className="setting-label">Export</span>
               <span className="setting-control stacked">
                 <button className="link" disabled={queue.entries.length === 0} onClick={() => exportQueue(queue.entries)}>
@@ -186,7 +242,7 @@ export function Options() {
                 <span className="muted">Saves {pluralVideos(queue.entries.length)} as a text file.</span>
               </span>
             </div>
-            <div className="setting">
+            <div id="setting-import" className="setting">
               <span className="setting-label">Import</span>
               <span className="setting-control stacked">
                 <button className="link" onClick={() => fileInput.current?.click()}>
@@ -206,7 +262,42 @@ export function Options() {
                 }}
               />
             </div>
-            <div className="setting">
+            <div id="setting-share" className="setting">
+              <span className="setting-label">Share</span>
+              <span className="setting-control stacked">
+                <button className="link" disabled={queue.entries.length === 0} onClick={async () => setNotice(await copyShareLink(queue))}>
+                  Copy share link
+                </button>
+                <span className="muted">A YouTube link that plays the rest of your queue (up to 50 videos), for anyone, with or without Cue.</span>
+              </span>
+            </div>
+            <div id="setting-paste" className="setting">
+              <span className="setting-label">Paste links</span>
+              <form
+                className="setting-control stacked"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setNotice(await importText(pasted));
+                  setPasted('');
+                }}
+              >
+                <span className="paste-row">
+                  <input
+                    className="text-input"
+                    type="text"
+                    value={pasted}
+                    onChange={(e) => setPasted(e.target.value)}
+                    placeholder="Paste YouTube links or a share link"
+                    aria-label="YouTube links or a share link to add"
+                  />
+                  <button className="link" type="submit" disabled={!pasted.trim()}>
+                    Add
+                  </button>
+                </span>
+                <span className="muted">Adds every video in the links, including all the videos in a share link.</span>
+              </form>
+            </div>
+            <div id="setting-history" className="setting">
               <span className="setting-label">History</span>
               <span className="setting-control stacked">
                 <button className="link" disabled={queue.history.length === 0} onClick={() => send({ type: 'history/clear' })}>
@@ -220,6 +311,12 @@ export function Options() {
                 {notice}
               </p>
             )}
+          </section>
+
+          <section id="whats-new">
+            <h2>What's new</h2>
+            <p className="section-sub">What changed in each version of Cue</p>
+            <WhatsNew />
           </section>
         </main>
       </div>

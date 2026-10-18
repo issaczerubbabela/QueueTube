@@ -45,7 +45,7 @@ export function HistoryList({ queue }: { queue: Queue }) {
             }}
           >
             <span className="lead" aria-hidden="true" />
-            <Thumb video={item} width={100} />
+            <Thumb video={item} width={100} progress />
             <span className="meta">
               <Title video={item} className="title" />
               <span className="channel">

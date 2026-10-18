@@ -1,0 +1,192 @@
+{
+ "responseContext": {
+  "visitorData": "x"
+ },
+ "onResponseReceivedActions": [
+  {
+   "clickTrackingParams": "y",
+   "appendContinuationItemsAction": {
+    "continuationItems": [
+     {
+      "playlistVideoRenderer": {
+       "videoId": "OPf0YbXqDm0",
+       "thumbnail": {
+        "thumbnails": [
+         {
+          "url": "https://i.ytimg.com/vi/OPf0YbXqDm0/hqdefault.jpg",
+          "width": 168,
+          "height": 94
+         }
+        ]
+       },
+       "title": {
+        "runs": [
+         {
+          "text": "Mark Ronson - Uptown Funk (Official Video) ft. Bruno Mars"
+         }
+        ],
+        "accessibility": {
+         "accessibilityData": {
+          "label": "Mark Ronson - Uptown Funk (Official Video) ft. Bruno Mars"
+         }
+        }
+       },
+       "index": {
+        "simpleText": "1"
+       },
+       "shortBylineText": {
+        "runs": [
+         {
+          "text": "Mark Ronson",
+          "navigationEndpoint": {
+           "browseEndpoint": {
+            "browseId": "UC123"
+           }
+          }
+         }
+        ]
+       },
+       "lengthText": {
+        "simpleText": "3:33"
+       },
+       "navigationEndpoint": {
+        "watchEndpoint": {
+         "videoId": "OPf0YbXqDm0",
+         "playlistId": "PLfixture"
+        }
+       },
+       "lengthSeconds": "271",
+       "isPlayable": true,
+       "videoInfo": {
+        "runs": [
+         {
+          "text": "1.2B views"
+         }
+        ]
+       }
+      }
+     },
+     {
+      "playlistVideoRenderer": {
+       "videoId": "fJ9rUzIMcZQ",
+       "thumbnail": {
+        "thumbnails": [
+         {
+          "url": "https://i.ytimg.com/vi/fJ9rUzIMcZQ/hqdefault.jpg",
+          "width": 168,
+          "height": 94
+         }
+        ]
+       },
+       "title": {
+        "runs": [
+         {
+          "text": "Queen – Bohemian Rhapsody (Official Video Remastered)"
+         }
+        ],
+        "accessibility": {
+         "accessibilityData": {
+          "label": "Queen – Bohemian Rhapsody (Official Video Remastered)"
+         }
+        }
+       },
+       "index": {
+        "simpleText": "1"
+       },
+       "shortBylineText": {
+        "runs": [
+         {
+          "text": "Queen Official",
+          "navigationEndpoint": {
+           "browseEndpoint": {
+            "browseId": "UC123"
+           }
+          }
+         }
+        ]
+       },
+       "lengthText": {
+        "simpleText": "3:33"
+       },
+       "navigationEndpoint": {
+        "watchEndpoint": {
+         "videoId": "fJ9rUzIMcZQ",
+         "playlistId": "PLfixture"
+        }
+       },
+       "lengthSeconds": "360",
+       "isPlayable": true,
+       "videoInfo": {
+        "runs": [
+         {
+          "text": "1.2B views"
+         }
+        ]
+       }
+      }
+     },
+     {
+      "playlistVideoRenderer": {
+       "videoId": "dQw4w9WgXcQ",
+       "thumbnail": {
+        "thumbnails": [
+         {
+          "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+          "width": 168,
+          "height": 94
+         }
+        ]
+       },
+       "title": {
+        "runs": [
+         {
+          "text": "Rick Astley - Never Gonna Give You Up (Official Music Video)"
+         }
+        ],
+        "accessibility": {
+         "accessibilityData": {
+          "label": "Rick Astley - Never Gonna Give You Up (Official Music Video)"
+         }
+        }
+       },
+       "index": {
+        "simpleText": "1"
+       },
+       "shortBylineText": {
+        "runs": [
+         {
+          "text": "Rick Astley",
+          "navigationEndpoint": {
+           "browseEndpoint": {
+            "browseId": "UC123"
+           }
+          }
+         }
+        ]
+       },
+       "lengthText": {
+        "simpleText": "3:33"
+       },
+       "navigationEndpoint": {
+        "watchEndpoint": {
+         "videoId": "dQw4w9WgXcQ",
+         "playlistId": "PLfixture"
+        }
+       },
+       "lengthSeconds": "213",
+       "isPlayable": true,
+       "videoInfo": {
+        "runs": [
+         {
+          "text": "1.2B views"
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "targetId": "PLfixture"
+   }
+  }
+ ]
+}

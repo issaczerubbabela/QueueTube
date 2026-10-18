@@ -1,0 +1,225 @@
+{
+ "contents": {
+  "twoColumnBrowseResultsRenderer": {
+   "tabs": [
+    {
+     "tabRenderer": {
+      "content": {
+       "sectionListRenderer": {
+        "contents": [
+         {
+          "itemSectionRenderer": {
+           "contents": [
+            {
+             "lockupViewModel": {
+              "contentImage": {
+               "thumbnailViewModel": {
+                "overlays": [
+                 {
+                  "thumbnailBottomOverlayViewModel": {
+                   "badges": [
+                    {
+                     "thumbnailBadgeViewModel": {
+                      "text": "40:01"
+                     }
+                    }
+                   ]
+                  }
+                 }
+                ]
+               }
+              },
+              "metadata": {
+               "lockupMetadataViewModel": {
+                "title": {
+                 "content": "Manfred Mann's Earth Band - Watch Full Album"
+                },
+                "metadata": {
+                 "contentMetadataViewModel": {
+                  "metadataRows": [
+                   {
+                    "metadataParts": [
+                     {
+                      "text": {
+                       "content": "pemnielsencom"
+                      }
+                     }
+                    ]
+                   },
+                   {
+                    "metadataParts": [
+                     {
+                      "text": {
+                       "content": "2.3M"
+                      }
+                     },
+                     {
+                      "text": {
+                       "content": "12y ago"
+                      }
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                }
+               }
+              },
+              "contentId": "5YWaIglbCak",
+              "contentType": "LOCKUP_CONTENT_TYPE_VIDEO"
+             }
+            },
+            {
+             "lockupViewModel": {
+              "contentImage": {
+               "thumbnailViewModel": {
+                "overlays": [
+                 {
+                  "thumbnailBottomOverlayViewModel": {
+                   "badges": [
+                    {
+                     "thumbnailBadgeViewModel": {
+                      "text": "42:36"
+                     }
+                    }
+                   ]
+                  }
+                 }
+                ]
+               }
+              },
+              "metadata": {
+               "lockupMetadataViewModel": {
+                "title": {
+                 "content": "Led Zeppelin - IV {Remastered} [Full Album] (HQ)"
+                },
+                "metadata": {
+                 "contentMetadataViewModel": {
+                  "metadataRows": [
+                   {
+                    "metadataParts": [
+                     {
+                      "text": {
+                       "content": "Kerrrang"
+                      }
+                     }
+                    ]
+                   },
+                   {
+                    "metadataParts": [
+                     {
+                      "text": {
+                       "content": "2.1M"
+                      }
+                     },
+                     {
+                      "text": {
+                       "content": "5y ago"
+                      }
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                }
+               }
+              },
+              "contentId": "YoNu4zyT-R8",
+              "contentType": "LOCKUP_CONTENT_TYPE_VIDEO"
+             }
+            },
+            {
+             "lockupViewModel": {
+              "contentImage": {
+               "thumbnailViewModel": {
+                "overlays": [
+                 {
+                  "thumbnailBottomOverlayViewModel": {
+                   "badges": [
+                    {
+                     "thumbnailBadgeViewModel": {
+                      "text": "42:17"
+                     }
+                    }
+                   ]
+                  }
+                 }
+                ]
+               }
+              },
+              "metadata": {
+               "lockupMetadataViewModel": {
+                "title": {
+                 "content": "Cosmo's Factory - Vinyl Album"
+                },
+                "metadata": {
+                 "contentMetadataViewModel": {
+                  "metadataRows": [
+                   {
+                    "metadataParts": [
+                     {
+                      "text": {
+                       "content": "Apo458"
+                      }
+                     }
+                    ]
+                   },
+                   {
+                    "metadataParts": [
+                     {
+                      "text": {
+                       "content": "9.1K"
+                      }
+                     },
+                     {
+                      "text": {
+                       "content": "4y ago"
+                      }
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                }
+               }
+              },
+              "contentId": "qgT_rshCUQ0",
+              "contentType": "LOCKUP_CONTENT_TYPE_VIDEO"
+             }
+            },
+            {
+             "continuationItemViewModel": {
+              "continuationCommand": {
+               "innertubeCommand": {
+                "continuationCommand": {
+                 "token": "4qmFsgKBARIkVkxQTGtqRXZNSnBGS2VYYnZzN0VUYURYbThGUktETERDTmNLGjRDQUY2SGxCVU9rTklNR2xGUkZFMVVrUmpNMDFVUVRCTk1Ga3hUMVJOZUUwd1ZRJTNEJTNEmgIiUExrakV2TUpwRktlWGJ2czdFVGFEWG04RlJLRExEQ05jSw%3D%3D",
+                 "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         },
+         {
+          "continuationItemViewModel": {
+           "continuationCommand": {
+            "innertubeCommand": {
+             "continuationCommand": {
+              "token": "4qmFsgJbEiRWTFBMa2pFdk1KcEZLZVhidnM3RVRhRFhtOEZSS0RMRENOY0saDGtnRURDT01JNEFzQpoCJFZMUExrakV2TUpwRktlWGJ2czdFVGFEWG04RlJLRExEQ05jSw%3D%3D",
+              "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+             }
+            }
+           }
+          }
+         }
+        ]
+       }
+      }
+     }
+    }
+   ]
+  }
+ }
+}

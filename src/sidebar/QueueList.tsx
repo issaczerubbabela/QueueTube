@@ -1,37 +1,54 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowUpToLine, EllipsisVertical, ExternalLink, Link, ListStart, Play, X } from 'lucide-react';
+import { Archive, ArrowDownToLine, ArrowUpToLine, EllipsisVertical, ExternalLink, Link, ListStart, Pause, Play, Search, X } from 'lucide-react';
 import * as Q from '../domain/queue';
 import { watchUrl } from '../domain/youtube';
 import { send } from '../shared/messages';
 import { Menu, Thumb, Title, useMenu } from '../ui/components';
+import { dropVideos, mayHoldLinks } from '../ui/transfer';
 
 interface Props {
   queue: Q.Queue;
   onRemoved: (entry: Q.Entry) => void;
+  /** A message after links dropped from the page were not added (already queued). */
+  onDropMessage: (message: string) => void;
 }
 
-type Drop = { index: number; after: boolean };
+export type Drop = { index: number; after: boolean };
+
+/** Drag data naming a queue entry, so the Shelf tab can take it. */
+export const ENTRY_DRAG_TYPE = 'application/x-cue-entry';
+
+/** Where a drag over a row would drop: before it on its top half, after it on its bottom half. */
+export function dropAt(e: React.DragEvent<HTMLElement>, index: number): Drop {
+  const rect = e.currentTarget.getBoundingClientRect();
+  return { index, after: e.clientY > rect.top + rect.height / 2 };
+}
 
 /** Index the dragged entry ends up at when dropped before/after the row at `drop.index`. */
-function targetIndex(from: number, drop: Drop): number {
+export function targetIndex(from: number, drop: Drop): number {
   const insertAt = drop.index + (drop.after ? 1 : 0);
   return insertAt > from ? insertAt - 1 : insertAt;
 }
 
-export function QueueList({ queue, onRemoved }: Props) {
+export function QueueList({ queue, onRemoved, onDropMessage }: Props) {
   const [dragging, setDragging] = useState<number | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
   // Optimistic order while a move is in flight, so a dropped row doesn't snap back for a frame.
   const [pending, setPending] = useState<Q.Entry[] | null>(null);
   const [menuEntry, setMenuEntry] = useState<Q.Entry | null>(null);
   const menu = useMenu();
+  const [filter, setFilter] = useState('');
   const focusAfterUpdate = useRef<string | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
+  const filterRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setPending(null), [queue.entries]);
 
   const entries = pending ?? queue.entries;
   const currentIdx = entries.findIndex((e) => e.id === queue.currentId);
+  // While filtering, reordering is off: the neighbours a row would move between are hidden.
+  const filtering = filter.trim() !== '';
+  const visible = entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => Q.matchesFilter(entry, filter));
 
   // Keep keyboard focus on a row after it moves.
   useEffect(() => {
@@ -64,7 +81,8 @@ export function QueueList({ queue, onRemoved }: Props) {
     onRemoved(entry);
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLLIElement>, entry: Q.Entry, index: number) => {
+  /** `index` is the entry's place in the queue, `row` its place among the rows shown. */
+  const onKeyDown = (e: React.KeyboardEvent<HTMLLIElement>, entry: Q.Entry, index: number, row: number) => {
     if (e.target !== e.currentTarget) return;
     const rows = listRef.current?.querySelectorAll<HTMLElement>('[data-entry-id]');
     if (e.key === 'Enter' || e.key === ' ') {
@@ -72,15 +90,18 @@ export function QueueList({ queue, onRemoved }: Props) {
       send({ type: 'play/entry', entryId: entry.id });
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
-      (rows?.[index + 1] ?? rows?.[index - 1])?.focus();
+      (rows?.[row + 1] ?? rows?.[row - 1])?.focus();
       remove(entry);
     } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.altKey) {
       e.preventDefault();
+      if (filtering) return;
       focusAfterUpdate.current = entry.id;
       moveTo(entry, index + (e.key === 'ArrowUp' ? -1 : 1));
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
-      rows?.[index + (e.key === 'ArrowUp' ? -1 : 1)]?.focus();
+      const next = rows?.[row + (e.key === 'ArrowUp' ? -1 : 1)];
+      if (next) next.focus();
+      else if (e.key === 'ArrowUp') filterRef.current?.focus();
     }
   };
 
@@ -97,13 +118,17 @@ export function QueueList({ queue, onRemoved }: Props) {
         disabled: isCurrent || index === currentIdx + 1,
         onSelect: () => send({ type: 'queue/playNextInLine', entryId: entry.id }),
       },
-      { label: 'Move to top', icon: <ArrowUpToLine />, disabled: index === 0, onSelect: () => moveTo(entry, 0) },
+      { label: 'Move to top', icon: <ArrowUpToLine />, disabled: filtering || index === 0, onSelect: () => moveTo(entry, 0) },
       {
         label: 'Move to bottom',
         icon: <ArrowDownToLine />,
-        disabled: index === entries.length - 1,
+        disabled: filtering || index === entries.length - 1,
         onSelect: () => moveTo(entry, entries.length - 1),
       },
+      entry.id === queue.stopAfterId
+        ? { label: "Don't stop after this", icon: <Play />, onSelect: () => send({ type: 'queue/stopPoint', entryId: null }) }
+        : { label: 'Stop after this', icon: <Pause />, onSelect: () => send({ type: 'queue/stopPoint', entryId: entry.id }) },
+      { label: 'Move to shelf', icon: <Archive />, onSelect: () => send({ type: 'shelf/add', entryId: entry.id }) },
       'separator' as const,
       {
         label: 'Open in new tab',
@@ -114,20 +139,50 @@ export function QueueList({ queue, onRemoved }: Props) {
       'separator' as const,
       { label: 'Remove from queue', icon: <X />, danger: true, onSelect: () => remove(entry) },
     ];
-  }, [menuEntry, entries, queue.currentId, currentIdx]);
+  }, [menuEntry, entries, queue.currentId, queue.stopAfterId, currentIdx, filtering]);
 
   return (
     <>
+      {(entries.length > 1 || filtering) && (
+        <div className="filter" role="search">
+          <Search aria-hidden="true" />
+          <input
+            ref={filterRef}
+            type="text"
+            value={filter}
+            placeholder="Filter by title or channel"
+            aria-label="Filter the queue by title or channel"
+            spellCheck={false}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && filter) {
+                e.preventDefault();
+                setFilter('');
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                listRef.current?.querySelector<HTMLElement>('[data-entry-id]')?.focus();
+              }
+            }}
+          />
+          {filtering && (
+            <button className="icon-btn" aria-label="Clear filter" onClick={() => setFilter('')}>
+              <X />
+            </button>
+          )}
+        </div>
+      )}
       <p id="qt-reorder-hint" className="sr-only">
-        Press Enter to play, Alt plus arrow keys to reorder, Delete to remove.
+        {filtering ? 'Press Enter to play, Delete to remove.' : 'Press Enter to play, Alt plus arrow keys to reorder, Delete to remove.'}
       </p>
-      <ol ref={listRef} className="list" aria-label="Queue" onDragLeave={(e) => {
+      {filtering && visible.length === 0 && <p className="filter-empty">No videos match “{filter.trim()}”</p>}
+      <ol ref={listRef} className={`list${filtering ? ' filtered' : ''}`} aria-label="Queue" onDragLeave={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node)) setDrop(null);
       }}>
-        {entries.map((entry, index) => {
+        {visible.map(({ entry, index }, row) => {
           const isCurrent = entry.id === queue.currentId;
+          // Rows dragged within the panel move; links dragged in from the page are added there.
           const dropClass =
-            drop && dragging !== null && drop.index === index && targetIndex(dragging, drop) !== dragging
+            drop && drop.index === index && (dragging === null || targetIndex(dragging, drop) !== dragging)
               ? drop.after
                 ? ' drop-after'
                 : ' drop-before'
@@ -139,24 +194,28 @@ export function QueueList({ queue, onRemoved }: Props) {
               tabIndex={0}
               aria-current={isCurrent ? 'true' : undefined}
               aria-describedby="qt-reorder-hint"
-              className={`row${isCurrent ? ' current' : ''}${dragging === index ? ' dragging' : ''}${dropClass}`}
-              draggable
+              className={`row${isCurrent ? ' current' : ''}${entry.id === queue.stopAfterId ? ' stop-point' : ''}${dragging === index ? ' dragging' : ''}${dropClass}`}
+              draggable={!filtering}
               onDragStart={(e) => {
+                if (filtering) return e.preventDefault();
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', watchUrl(entry.videoId));
+                e.dataTransfer.setData(ENTRY_DRAG_TYPE, entry.id);
                 setDragging(index);
               }}
               onDragOver={(e) => {
-                if (dragging === null) return;
+                if (filtering || (dragging === null && !mayHoldLinks(e.dataTransfer))) return;
                 e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                const rect = e.currentTarget.getBoundingClientRect();
-                const after = e.clientY > rect.top + rect.height / 2;
-                if (drop?.index !== index || drop.after !== after) setDrop({ index, after });
+                e.dataTransfer.dropEffect = dragging === null ? 'copy' : 'move';
+                const at = dropAt(e, index);
+                if (drop?.index !== at.index || drop.after !== at.after) setDrop(at);
               }}
               onDrop={(e) => {
+                if (filtering) return;
                 e.preventDefault();
-                if (dragging !== null && drop) moveTo(entries[dragging], targetIndex(dragging, drop));
+                const at = dropAt(e, index);
+                if (dragging !== null) moveTo(entries[dragging], targetIndex(dragging, at));
+                else dropVideos(e.dataTransfer, at.index + (at.after ? 1 : 0)).then((message) => message && onDropMessage(message));
                 setDragging(null);
                 setDrop(null);
               }}
@@ -165,7 +224,7 @@ export function QueueList({ queue, onRemoved }: Props) {
                 setDrop(null);
               }}
               onClick={() => send({ type: 'play/entry', entryId: entry.id })}
-              onKeyDown={(e) => onKeyDown(e, entry, index)}
+              onKeyDown={(e) => onKeyDown(e, entry, index, row)}
             >
               <span className="lead" aria-hidden="true">
                 {isCurrent ? <Play className="current-mark" /> : <span className="index">{index + 1}</span>}
@@ -173,10 +232,16 @@ export function QueueList({ queue, onRemoved }: Props) {
                   <path d="M4 9h16M4 15h16" />
                 </svg>
               </span>
-              <Thumb video={entry} width={100} />
+              <Thumb video={entry} width={100} progress />
               <span className="meta">
                 <Title video={entry} className="title" />
                 <span className="channel">{entry.channel || ' '}</span>
+                {entry.id === queue.stopAfterId && (
+                  <span className="stop-mark">
+                    <Pause aria-hidden="true" />
+                    Stops after this
+                  </span>
+                )}
               </span>
               <span className="row-actions">
                 <button
